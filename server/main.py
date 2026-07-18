@@ -10,14 +10,19 @@ Requires ANTHROPIC_API_KEY in the environment (or an `ant auth login` profile).
 """
 
 import base64
+import io
 import json
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
 import anthropic
 import ezdxf
+from ezdxf import recover
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 app = FastAPI(title="IronNets Server")
 
@@ -244,31 +249,165 @@ def _entity_length(entity) -> float:
 _UNIT_TO_M = {1: 0.0254, 2: 0.3048, 4: 0.001, 5: 0.01, 6: 1.0}
 
 
-@app.post("/parse-dxf")
-async def parse_dxf(file: UploadFile) -> dict:
+def _is_dwg(data: bytes) -> bool:
+    """DWG files start with a version string like AC1032."""
+    return data[:2] == b"AC"
+
+
+def _convert_dwg_to_dxf(dwg_path: Path, workdir: Path) -> Path:
+    """Convert DWG to DXF using LibreDWG's dwg2dxf (installed in the Docker image)."""
+    if shutil.which("dwg2dxf") is None:
+        raise HTTPException(
+            status_code=501,
+            detail=(
+                "המרת DWG דורשת את הכלי dwg2dxf (LibreDWG), שמותקן בגרסת "
+                "ה-Docker של השרת. הרץ את השרת בקונטיינר, או ייצא ל-DXF/PDF."
+            ),
+        )
+    out_path = workdir / (dwg_path.stem + ".dxf")
+    result = subprocess.run(
+        ["dwg2dxf", "-o", str(out_path), str(dwg_path)],
+        capture_output=True,
+        timeout=120,
+    )
+    if result.returncode != 0 or not out_path.exists():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "המרת ה-DWG נכשלה — ייתכן שהקובץ פגום או בגרסה לא נתמכת. "
+                "נסה לייצא ל-DXF או PDF."
+            ),
+        )
+    return out_path
+
+
+def _fix_zero_handles(dxf_path: Path) -> None:
+    """LibreDWG לפעמים כותב handle 0 לישויות — מקצה להן handles חדשים."""
+    lines = dxf_path.read_text(errors="surrogateescape").splitlines()
+    max_handle = 0
+    for i in range(len(lines) - 1):
+        if lines[i].strip() in ("5", "105"):
+            try:
+                max_handle = max(max_handle, int(lines[i + 1].strip(), 16))
+            except ValueError:
+                pass
+    next_handle = max_handle + 1
+    changed = False
+    for i in range(len(lines) - 1):
+        if lines[i].strip() in ("5", "105") and lines[i + 1].strip() == "0":
+            lines[i + 1] = f"{next_handle:X}"
+            next_handle += 1
+            changed = True
+    if changed:
+        dxf_path.write_text("\n".join(lines) + "\n", errors="surrogateescape")
+
+
+def _read_cad_document(data: bytes, workdir: Path):
+    """Load an uploaded DWG or DXF into an ezdxf document."""
+    if _is_dwg(data):
+        dwg_path = workdir / "input.dwg"
+        dwg_path.write_bytes(data)
+        dxf_path = _convert_dwg_to_dxf(dwg_path, workdir)
+    else:
+        dxf_path = workdir / "input.dxf"
+        dxf_path.write_bytes(data)
+    try:
+        return ezdxf.readfile(dxf_path)
+    except (IOError, ezdxf.DXFStructureError, ValueError):
+        # קבצים שהומרו (למשל ע"י LibreDWG) לא תמיד עוברים טעינה קפדנית —
+        # מתקנים handles שבורים וטוענים במצב recover הסלחני
+        try:
+            _fix_zero_handles(dxf_path)
+            doc, _auditor = recover.readfile(dxf_path)
+            return doc
+        except (IOError, ezdxf.DXFStructureError, ValueError) as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="הקובץ אינו DXF או DWG תקין",
+            ) from exc
+
+
+def _modelspace_entities(doc) -> list:
+    """ישויות ה-modelspace, כולל fallback לקבצים מומרים שבהם ה-Layout
+    מצביע על block record שגוי אך הישויות קיימות ב-*Model_Space."""
+    entities = list(doc.modelspace())
+    if entities:
+        return entities
+    try:
+        block_record = doc.block_records.get("*Model_Space")
+    except Exception:
+        return []
+    return list(block_record.entity_space)
+
+
+@app.post("/convert-cad")
+async def convert_cad(file: UploadFile) -> Response:
+    """Convert a DWG/DXF plan to a PDF rendering of its modelspace."""
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="קובץ ריק")
 
-    with tempfile.NamedTemporaryFile(suffix=".dxf", delete=False) as tmp:
-        tmp.write(data)
-        tmp_path = Path(tmp.name)
+    import matplotlib
 
-    try:
-        try:
-            doc = ezdxf.readfile(tmp_path)
-        except (IOError, ezdxf.DXFStructureError) as exc:
+    matplotlib.use("agg")
+    import matplotlib.pyplot as plt
+    from ezdxf.addons import Importer
+    from ezdxf.addons.drawing import RenderContext, Frontend
+    from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+
+    with tempfile.TemporaryDirectory() as tmp:
+        workdir = Path(tmp)
+        doc = _read_cad_document(data, workdir)
+
+        entities = _modelspace_entities(doc)
+        if not entities:
             raise HTTPException(
-                status_code=400,
-                detail="הקובץ אינו DXF תקין. קובצי DWG יש לייצא ל-DXF קודם.",
-            ) from exc
+                status_code=422, detail="לא נמצאו ישויות לשרטוט בקובץ"
+            )
+
+        # מייבאים את הישויות למסמך חדש ותקין — קבצים מומרים מגיעים לעיתים
+        # עם Layouts שבורים שמפילים את הרינדור הישיר
+        clean = ezdxf.new()
+        importer = Importer(doc, clean)
+        importer.import_entities(entities, clean.modelspace())
+        importer.finalize()
+
+        fig = plt.figure(figsize=(16.5, 11.7))  # A3 landscape
+        ax = fig.add_axes([0, 0, 1, 1])
+        ctx = RenderContext(clean)
+        Frontend(ctx, MatplotlibBackend(ax)).draw_layout(
+            clean.modelspace(), finalize=True
+        )
+
+        buf = io.BytesIO()
+        try:
+            fig.savefig(buf, format="pdf", dpi=300)
+        finally:
+            plt.close(fig)
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="plan.pdf"'},
+    )
+
+
+@app.post("/parse-dxf")
+async def parse_dxf(file: UploadFile) -> dict:
+    """Summarize a DXF or DWG plan (DWG is converted automatically)."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="קובץ ריק")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        doc = _read_cad_document(data, Path(tmp))
 
         unit_factor = _UNIT_TO_M.get(doc.header.get("$INSUNITS", 0), 1.0)
         layers: dict[str, dict] = {}
         texts: list[str] = []
 
-        for entity in doc.modelspace():
-            layer = entity.dxf.layer
+        for entity in _modelspace_entities(doc):
+            layer = entity.dxf.layer or "0"
             info = layers.setdefault(
                 layer, {"name": layer, "entityCount": 0, "totalLengthM": 0.0}
             )
@@ -288,5 +427,3 @@ async def parse_dxf(file: UploadFile) -> dict:
             "layers": sorted(layers.values(), key=lambda x: -x["entityCount"]),
             "texts": [t for t in texts if t.strip()][:500],
         }
-    finally:
-        tmp_path.unlink(missing_ok=True)

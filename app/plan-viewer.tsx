@@ -1,8 +1,13 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { WebView } from 'react-native-webview';
 import { strings } from '../src/i18n/strings';
+
+// react-native-webview אינו נתמך בדפדפן — נטען רק בנייטיב
+const NativeWebView =
+  Platform.OS !== 'web'
+    ? (require('react-native-webview').WebView as React.ComponentType<any>)
+    : null;
 
 export default function PlanViewerScreen() {
   const { uri } = useLocalSearchParams<{ uri?: string }>();
@@ -16,10 +21,24 @@ export default function PlanViewerScreen() {
     );
   }
 
+  if (Platform.OS === 'web' || !NativeWebView) {
+    return (
+      <View style={styles.center}>
+        <Stack.Screen options={{ title: strings.planViewerTitle }} />
+        <Pressable
+          style={styles.openBtn}
+          onPress={() => window.open(uri, '_blank')}
+        >
+          <Text style={styles.openBtnText}>{strings.viewPlan}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.flex}>
       <Stack.Screen options={{ title: strings.planViewerTitle }} />
-      <WebView
+      <NativeWebView
         style={styles.flex}
         source={{ uri }}
         originWhitelist={['*']}
@@ -42,5 +61,16 @@ const styles = StyleSheet.create({
   notFound: {
     fontSize: 16,
     color: '#888',
+  },
+  openBtn: {
+    backgroundColor: '#b45309',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  openBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

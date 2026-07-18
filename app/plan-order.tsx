@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -27,7 +26,12 @@ import { CalcError, computeOrder } from '../src/calc/mesh';
 import { computePlanExtras } from '../src/calc/rebar';
 import { getOrder, saveOrder } from '../src/storage/orderRepo';
 import { getServerUrl, setServerUrl } from '../src/storage/settings';
-import { extractFromPdf, ExtractionResult } from '../src/api/serverApi';
+import {
+  convertCadToPdf,
+  extractFromPdf,
+  ExtractionResult,
+} from '../src/api/serverApi';
+import { confirmAction, notify } from '../src/ui/alerts';
 import { strings } from '../src/i18n/strings';
 import MeshSpecPicker from '../src/components/MeshSpecPicker';
 import RectRow, { AreaDraft } from '../src/components/RectRow';
@@ -151,6 +155,7 @@ export default function PlanOrderScreen() {
   const [planFileName, setPlanFileName] = useState<string | null>(null);
   const [serverUrl, setServerUrlState] = useState('');
   const [extracting, setExtracting] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [existingCreatedAt, setExistingCreatedAt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -237,11 +242,57 @@ export default function PlanOrderScreen() {
 
   const pickPlan = async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: 'application/pdf',
+      type: '*/*',
       copyToCacheDirectory: true,
     });
     if (result.canceled || result.assets.length === 0) return;
     const asset = result.assets[0];
+    const name = asset.name ?? 'plan.pdf';
+    const ext = name.toLowerCase().split('.').pop() ?? '';
+
+    if (ext !== 'pdf' && ext !== 'dwg' && ext !== 'dxf') {
+      notify(strings.unsupportedPlanType);
+      return;
+    }
+
+    // קובצי CAD מומרים ל-PDF בשרת
+    if (ext === 'dwg' || ext === 'dxf') {
+      const url = serverUrl.trim();
+      if (!url) {
+        notify(strings.convertNeedsServer);
+        return;
+      }
+      await setServerUrl(url);
+      setConverting(true);
+      try {
+        const pdfName = name.replace(/\.(dwg|dxf)$/i, '.pdf');
+        let destUri = '';
+        if (Platform.OS !== 'web') {
+          const plansDir = `${FileSystem.documentDirectory}plans/`;
+          await FileSystem.makeDirectoryAsync(plansDir, {
+            intermediates: true,
+          }).catch(() => undefined);
+          destUri = `${plansDir}${Crypto.randomUUID()}.pdf`;
+        }
+        const localUri = await convertCadToPdf(url, asset.uri, name, destUri);
+        setPlanFileUri(localUri);
+        setPlanFileName(pdfName);
+      } catch (e) {
+        notify(
+          strings.convertFailed,
+          e instanceof Error ? e.message : String(e)
+        );
+      } finally {
+        setConverting(false);
+      }
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      setPlanFileUri(asset.uri);
+      setPlanFileName(name);
+      return;
+    }
     const plansDir = `${FileSystem.documentDirectory}plans/`;
     await FileSystem.makeDirectoryAsync(plansDir, { intermediates: true }).catch(
       () => undefined
@@ -249,7 +300,16 @@ export default function PlanOrderScreen() {
     const dest = `${plansDir}${Crypto.randomUUID()}.pdf`;
     await FileSystem.copyAsync({ from: asset.uri, to: dest });
     setPlanFileUri(dest);
-    setPlanFileName(asset.name ?? 'plan.pdf');
+    setPlanFileName(name);
+  };
+
+  const openPlan = () => {
+    if (!planFileUri) return;
+    if (Platform.OS === 'web') {
+      window.open(planFileUri, '_blank');
+      return;
+    }
+    router.push(`/plan-viewer?uri=${encodeURIComponent(planFileUri)}`);
   };
 
   const applyExtraction = (extraction: ExtractionResult) => {
@@ -297,12 +357,12 @@ export default function PlanOrderScreen() {
 
   const extract = async () => {
     if (!planFileUri || !planFileName) {
-      Alert.alert(strings.extractNeedsPlan);
+      notify(strings.extractNeedsPlan);
       return;
     }
     const url = serverUrl.trim();
     if (!url) {
-      Alert.alert(strings.extractNeedsServer);
+      notify(strings.extractNeedsServer);
       return;
     }
     await setServerUrl(url);
@@ -315,12 +375,14 @@ export default function PlanOrderScreen() {
           extraction.bars.length,
           extraction.columns.length
         ) + (extraction.notes ? `\n\n${extraction.notes}` : '');
-      Alert.alert(strings.extractResultTitle, message, [
-        { text: strings.cancel, style: 'cancel' },
-        { text: strings.extractApply, onPress: () => applyExtraction(extraction) },
-      ]);
+      confirmAction(
+        strings.extractResultTitle,
+        message,
+        strings.extractApply,
+        () => applyExtraction(extraction)
+      );
     } catch (e) {
-      Alert.alert(
+      notify(
         strings.extractFailed,
         e instanceof Error ? e.message : String(e)
       );
@@ -331,7 +393,7 @@ export default function PlanOrderScreen() {
 
   const save = async () => {
     if (!parsed) {
-      Alert.alert(strings.invalidInput);
+      notify(strings.invalidInput);
       return;
     }
     try {
@@ -358,7 +420,7 @@ export default function PlanOrderScreen() {
       router.replace(`/order/${order.id}`);
     } catch (e) {
       if (e instanceof CalcError) {
-        Alert.alert(e.message);
+        notify(e.message);
         return;
       }
       throw e;
@@ -391,19 +453,26 @@ export default function PlanOrderScreen() {
         <Text style={styles.sectionTitle}>{strings.planSectionTitle}</Text>
         <Text style={styles.hint}>{strings.dwgNote}</Text>
         <View style={styles.planRow}>
-          <Pressable style={styles.planBtn} onPress={pickPlan}>
-            <Text style={styles.planBtnText}>
-              {planFileUri ? strings.replacePlan : strings.attachPlan}
-            </Text>
+          <Pressable
+            style={[styles.planBtn, converting && styles.saveDisabled]}
+            onPress={pickPlan}
+            disabled={converting}
+          >
+            {converting ? (
+              <View style={styles.extractingRow}>
+                <ActivityIndicator color="#fff" />
+                <Text style={styles.planBtnText}>{strings.convertingCad}</Text>
+              </View>
+            ) : (
+              <Text style={styles.planBtnText}>
+                {planFileUri ? strings.replacePlan : strings.attachPlan}
+              </Text>
+            )}
           </Pressable>
-          {planFileUri && (
+          {planFileUri && !converting && (
             <Pressable
               style={[styles.planBtn, styles.planBtnOutline]}
-              onPress={() =>
-                router.push(
-                  `/plan-viewer?uri=${encodeURIComponent(planFileUri)}`
-                )
-              }
+              onPress={openPlan}
             >
               <Text style={[styles.planBtnText, styles.planBtnOutlineText]}>
                 {strings.viewPlan}

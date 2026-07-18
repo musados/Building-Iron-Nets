@@ -1,0 +1,18 @@
+# IronNets — server + web, plain HTTP behind your production Caddy.
+# See DEPLOY.md for the production Caddyfile example.
+services:
+  server:
+    build: ./server
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "8080:80"
+    restart: unless-stopped

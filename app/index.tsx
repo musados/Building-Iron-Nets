@@ -1,6 +1,5 @@
 import React, { useCallback, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { OrderSummary } from '../src/types';
 import { deleteOrder, listOrders } from '../src/storage/orderRepo';
+import { confirmAction } from '../src/ui/alerts';
 import { strings } from '../src/i18n/strings';
 
 function fmtDate(iso: string): string {
@@ -28,17 +28,16 @@ export default function HistoryScreen() {
   );
 
   const confirmDelete = (id: string) => {
-    Alert.alert(strings.deleteOrder, strings.deleteOrderConfirm, [
-      { text: strings.cancel, style: 'cancel' },
-      {
-        text: strings.delete,
-        style: 'destructive',
-        onPress: async () => {
-          await deleteOrder(id);
-          setOrders(await listOrders());
-        },
+    confirmAction(
+      strings.deleteOrder,
+      strings.deleteOrderConfirm,
+      strings.delete,
+      async () => {
+        await deleteOrder(id);
+        setOrders(await listOrders());
       },
-    ]);
+      true
+    );
   };
 
   return (
@@ -68,24 +67,22 @@ export default function HistoryScreen() {
           </Pressable>
         )}
       />
-      <Pressable
-        style={styles.newButton}
-        onPress={() =>
-          Alert.alert(strings.chooseOrderType, '', [
-            {
-              text: `${strings.simpleOrder} — ${strings.simpleOrderDesc}`,
-              onPress: () => router.push('/new-order'),
-            },
-            {
-              text: `${strings.planOrder} — ${strings.planOrderDesc}`,
-              onPress: () => router.push('/plan-order'),
-            },
-            { text: strings.cancel, style: 'cancel' },
-          ])
-        }
-      >
-        <Text style={styles.newButtonText}>+ {strings.newOrder}</Text>
-      </Pressable>
+      <View style={styles.newButtonsRow}>
+        <Pressable
+          style={styles.newButton}
+          onPress={() => router.push('/new-order')}
+        >
+          <Text style={styles.newButtonText}>+ {strings.simpleOrder}</Text>
+          <Text style={styles.newButtonSub}>{strings.simpleOrderDesc}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.newButton, styles.planButton]}
+          onPress={() => router.push('/plan-order')}
+        >
+          <Text style={styles.newButtonText}>+ {strings.planOrder}</Text>
+          <Text style={styles.newButtonSub}>{strings.planOrderDesc}</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -125,23 +122,39 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'right',
   },
-  newButton: {
+  newButtonsRow: {
     position: 'absolute',
     bottom: 24,
-    alignSelf: 'center',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  newButton: {
+    flex: 1,
     backgroundColor: '#b45309',
-    borderRadius: 28,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
   },
+  planButton: {
+    backgroundColor: '#7c3f00',
+  },
   newButtonText: {
     color: '#fff',
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700',
+  },
+  newButtonSub: {
+    color: '#ffffffcc',
+    fontSize: 11,
+    marginTop: 2,
+    textAlign: 'center',
   },
 });

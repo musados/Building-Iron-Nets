@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,6 +15,7 @@ import { MeshSpec, Order, RectArea } from '../src/types';
 import { DEFAULT_MESH, DEFAULT_OVERLAP_CM } from '../src/constants';
 import { CalcError, computeOrder } from '../src/calc/mesh';
 import { getOrder, saveOrder } from '../src/storage/orderRepo';
+import { notify } from '../src/ui/alerts';
 import { strings } from '../src/i18n/strings';
 import MeshSpecPicker from '../src/components/MeshSpecPicker';
 import RectRow, { AreaDraft } from '../src/components/RectRow';
@@ -113,7 +113,7 @@ export default function NewOrderScreen() {
         ? draftsToAreas(drafts, mesh)
         : null;
     if (!areas || areas.length === 0 || overlapCm === null) {
-      Alert.alert(strings.invalidInput);
+      notify(strings.invalidInput);
       return;
     }
     try {
@@ -132,7 +132,7 @@ export default function NewOrderScreen() {
       router.replace(`/order/${order.id}`);
     } catch (e) {
       if (e instanceof CalcError) {
-        Alert.alert(e.message);
+        notify(e.message);
         return;
       }
       throw e;

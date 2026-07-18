@@ -1,0 +1,8 @@
+# Static file server for the Expo web export.
+# TLS is terminated by the production Caddy in front of this container.
+:80 {
+	root * /srv
+	encode gzip
+	try_files {path} {path}.html /index.html
+	file_server
+}

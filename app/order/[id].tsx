@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -19,6 +20,7 @@ import { Order } from '../../src/types';
 import { getOrder } from '../../src/storage/orderRepo';
 import { orderToText } from '../../src/share/orderText';
 import { orderToHtml } from '../../src/share/orderHtml';
+import { notify } from '../../src/ui/alerts';
 import { strings } from '../../src/i18n/strings';
 
 function fmtDate(iso: string): string {
@@ -39,11 +41,26 @@ export default function OrderDetailScreen() {
 
   const shareAsText = async () => {
     if (!order) return;
-    await Share.share({ message: orderToText(order) });
+    const message = orderToText(order);
+    if (Platform.OS === 'web') {
+      if (navigator.share) {
+        await navigator.share({ text: message }).catch(() => undefined);
+      } else {
+        await navigator.clipboard.writeText(message);
+        notify(strings.copiedToClipboard);
+      }
+      return;
+    }
+    await Share.share({ message });
   };
 
   const shareAsPdf = async () => {
     if (!order) return;
+    if (Platform.OS === 'web') {
+      // בדפדפן נפתח דיאלוג הדפסה — משם אפשר לשמור כ-PDF
+      await Print.printAsync({ html: orderToHtml(order) });
+      return;
+    }
     const { uri } = await Print.printToFileAsync({
       html: orderToHtml(order),
     });
@@ -51,6 +68,15 @@ export default function OrderDetailScreen() {
       mimeType: 'application/pdf',
       dialogTitle: strings.docTitle,
     });
+  };
+
+  const openPlan = () => {
+    if (!order?.planFileUri) return;
+    if (Platform.OS === 'web') {
+      window.open(order.planFileUri, '_blank');
+      return;
+    }
+    router.push(`/plan-viewer?uri=${encodeURIComponent(order.planFileUri)}`);
   };
 
   if (!order) {
@@ -153,14 +179,7 @@ export default function OrderDetailScreen() {
         </View>
 
         {order.planFileUri && (
-          <Pressable
-            style={styles.planBtn}
-            onPress={() =>
-              router.push(
-                `/plan-viewer?uri=${encodeURIComponent(order.planFileUri!)}`
-              )
-            }
-          >
+          <Pressable style={styles.planBtn} onPress={openPlan}>
             <Text style={styles.planBtnText}>
               {strings.viewPlan}
               {order.planFileName ? ` — ${order.planFileName}` : ''}
