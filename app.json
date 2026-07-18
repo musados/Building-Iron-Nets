@@ -23,8 +23,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
-      "expo-sharing"
+      "expo-router"
     ],
     "extra": {
       "supportsRTL": true
