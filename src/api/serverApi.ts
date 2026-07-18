@@ -9,12 +9,14 @@ export interface ExtractedMesh {
   name: string;
   lengthM: number;
   widthM: number;
+  derivation: string;
 }
 
 export interface ExtractedBar {
   diameterMm: number;
   lengthM: number;
   quantity: number;
+  derivation: string;
 }
 
 export interface ExtractedColumn {
@@ -27,6 +29,7 @@ export interface ExtractedColumn {
   longBarDiameterMm: number;
   stirrupDiameterMm: number;
   stirrupSpacingCm: number;
+  derivation: string;
 }
 
 export interface ExtractionResult {
@@ -152,18 +155,79 @@ export async function checkHealth(serverUrl: string): Promise<boolean> {
   }
 }
 
+export interface StreamingExtraction {
+  promise: Promise<ExtractionResult>;
+  cancel: () => void;
+}
+
+/**
+ * חילוץ כמויות עם סטרימינג: השרת מחזיר NDJSON — אירועי progress (סיכום
+ * החשיבה של המודל בזמן אמת) ולבסוף result או error. משתמשים ב-XHR כי
+ * fetch ב-React Native לא תומך בקריאת גוף תגובה מדורגת.
+ */
 export function extractFromPdf(
   serverUrl: string,
   fileUri: string,
-  fileName: string
-): Promise<ExtractionResult> {
-  return uploadFile<ExtractionResult>(
-    serverUrl,
-    '/extract-pdf',
-    fileUri,
-    fileName,
-    'application/pdf'
-  );
+  fileName: string,
+  onProgress: (text: string) => void
+): StreamingExtraction {
+  const xhr = new XMLHttpRequest();
+  const promise = new Promise<ExtractionResult>((resolve, reject) => {
+    let parsedIndex = 0;
+    let result: ExtractionResult | null = null;
+    let errorDetail = '';
+
+    const processNewLines = () => {
+      const text = xhr.responseText ?? '';
+      let newline: number;
+      while ((newline = text.indexOf('\n', parsedIndex)) !== -1) {
+        const line = text.slice(parsedIndex, newline).trim();
+        parsedIndex = newline + 1;
+        if (!line) continue;
+        try {
+          const event = JSON.parse(line);
+          if (event.type === 'progress') onProgress(event.text);
+          else if (event.type === 'result') result = event.data;
+          else if (event.type === 'error') errorDetail = event.detail;
+        } catch {
+          // שורה חלקית/פגומה — מתעלמים
+        }
+      }
+    };
+
+    xhr.open(
+      'POST',
+      `${normalizeBaseUrl(serverUrl)}/extract-pdf`
+    );
+    xhr.responseType = 'text';
+    xhr.onprogress = processNewLines;
+    xhr.onerror = () => reject(new Error('שגיאת רשת מול השרת'));
+    xhr.onabort = () => reject(new Error('cancelled'));
+    xhr.onload = () => {
+      processNewLines();
+      if (xhr.status !== 200) {
+        let detail = '';
+        try {
+          detail = JSON.parse(xhr.responseText)?.detail ?? '';
+        } catch {
+          detail = '';
+        }
+        reject(new Error(detail || `שגיאת שרת (${xhr.status})`));
+      } else if (errorDetail) {
+        reject(new Error(errorDetail));
+      } else if (result) {
+        resolve(result);
+      } else {
+        reject(new Error('תשובה ריקה מהשרת'));
+      }
+    };
+
+    buildForm(fileUri, fileName, 'application/pdf')
+      .then((form) => xhr.send(form))
+      .catch(reject);
+  });
+
+  return { promise, cancel: () => xhr.abort() };
 }
 
 export function parseDxf(

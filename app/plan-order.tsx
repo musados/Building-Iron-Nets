@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import * as Crypto from 'expo-crypto';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
+  AiExtractionReport,
   BarItem,
   ColumnItem,
   MeshSpec,
@@ -34,6 +35,8 @@ import {
 import { confirmAction, notify } from '../src/ui/alerts';
 import { strings } from '../src/i18n/strings';
 import MeshSpecPicker from '../src/components/MeshSpecPicker';
+import ExtractionReportModal from '../src/components/ExtractionReportModal';
+import ExtractionProgressModal from '../src/components/ExtractionProgressModal';
 import RectRow, { AreaDraft } from '../src/components/RectRow';
 import BarRow, { BarDraft } from '../src/components/BarRow';
 import ColumnCard, { ColumnDraft } from '../src/components/ColumnCard';
@@ -65,6 +68,25 @@ function newColumnDraft(index: number): ColumnDraft {
     longBarDiameter: '16',
     stirrupDiameter: '8',
     stirrupSpacing: '20',
+  };
+}
+
+function reportFromExtraction(e: ExtractionResult): AiExtractionReport {
+  return {
+    extractedAt: new Date().toISOString(),
+    meshes: e.meshes.map((m) => ({
+      label: `${m.name} — ${m.lengthM}×${m.widthM} מ'`,
+      derivation: m.derivation,
+    })),
+    bars: e.bars.map((b) => ({
+      label: `מוט Ø${b.diameterMm} מ"מ × ${b.lengthM} מ' — ${b.quantity} ${strings.units}`,
+      derivation: b.derivation,
+    })),
+    columns: e.columns.map((c) => ({
+      label: `${c.name} × ${c.count} — ${c.widthCm}/${c.depthCm} ס"מ, גובה ${c.heightM} מ'`,
+      derivation: c.derivation,
+    })),
+    notes: e.notes,
   };
 }
 
@@ -156,6 +178,10 @@ export default function PlanOrderScreen() {
   const [serverUrl, setServerUrlState] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [aiReport, setAiReport] = useState<AiExtractionReport | null>(null);
+  const [showReport, setShowReport] = useState(false);
+  const [extractProgress, setExtractProgress] = useState('');
+  const cancelExtractRef = useRef<(() => void) | null>(null);
   const [existingCreatedAt, setExistingCreatedAt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -171,6 +197,7 @@ export default function PlanOrderScreen() {
       setExistingCreatedAt(order.createdAt);
       setPlanFileUri(order.planFileUri ?? null);
       setPlanFileName(order.planFileName ?? null);
+      setAiReport(order.aiExtraction ?? null);
       const firstMesh = order.areas[0]?.mesh ?? DEFAULT_MESH;
       setMesh(firstMesh);
       if (firstMesh.isCustomSize) {
@@ -367,8 +394,14 @@ export default function PlanOrderScreen() {
     }
     await setServerUrl(url);
     setExtracting(true);
+    setExtractProgress('');
     try {
-      const extraction = await extractFromPdf(url, planFileUri, planFileName);
+      const streaming = extractFromPdf(url, planFileUri, planFileName, (text) =>
+        setExtractProgress((prev) => prev + text)
+      );
+      cancelExtractRef.current = streaming.cancel;
+      const extraction = await streaming.promise;
+      setAiReport(reportFromExtraction(extraction));
       const message =
         strings.extractResult(
           extraction.meshes.length,
@@ -382,11 +415,12 @@ export default function PlanOrderScreen() {
         () => applyExtraction(extraction)
       );
     } catch (e) {
-      notify(
-        strings.extractFailed,
-        e instanceof Error ? e.message : String(e)
-      );
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg !== 'cancelled') {
+        notify(strings.extractFailed, msg);
+      }
     } finally {
+      cancelExtractRef.current = null;
       setExtracting(false);
     }
   };
@@ -415,6 +449,7 @@ export default function PlanOrderScreen() {
         columnResults: extras.columnResults,
         planFileName: planFileName ?? undefined,
         planFileUri: planFileUri ?? undefined,
+        aiExtraction: aiReport ?? undefined,
       };
       await saveOrder(order);
       router.replace(`/order/${order.id}`);
@@ -600,6 +635,11 @@ export default function PlanOrderScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
+        {aiReport && (
+          <Pressable onPress={() => setShowReport(true)}>
+            <Text style={styles.reportLink}>🔍 {strings.aiReportButton}</Text>
+          </Pressable>
+        )}
         <Text style={styles.summaryText}>
           {summary === null
             ? strings.invalidInput
@@ -615,6 +655,21 @@ export default function PlanOrderScreen() {
           <Text style={styles.saveButtonText}>{strings.saveAndShow}</Text>
         </Pressable>
       </View>
+
+      {aiReport && (
+        <ExtractionReportModal
+          visible={showReport}
+          report={aiReport}
+          orderTitle={title}
+          onClose={() => setShowReport(false)}
+        />
+      )}
+
+      <ExtractionProgressModal
+        visible={extracting}
+        progressText={extractProgress}
+        onCancel={() => cancelExtractRef.current?.()}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -741,6 +796,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a1a1a',
     textAlign: 'center',
+  },
+  reportLink: {
+    color: '#7c3f00',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
   saveButton: {
     backgroundColor: '#b45309',

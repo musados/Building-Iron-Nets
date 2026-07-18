@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 from ezdxf import recover
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 # בהרצה מקומית: טוען .env מתיקיית השרת או משורש הפרויקט.
 # בקונטיינר המשתנים מגיעים מ-docker compose ולא נדרס דבר.
@@ -60,11 +60,12 @@ EXTRACTION_SCHEMA = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["name", "lengthM", "widthM"],
+                "required": ["name", "lengthM", "widthM", "derivation"],
                 "properties": {
                     "name": {"type": "string"},
                     "lengthM": {"type": "number"},
                     "widthM": {"type": "number"},
+                    "derivation": {"type": "string"},
                 },
             },
         },
@@ -73,11 +74,12 @@ EXTRACTION_SCHEMA = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["diameterMm", "lengthM", "quantity"],
+                "required": ["diameterMm", "lengthM", "quantity", "derivation"],
                 "properties": {
                     "diameterMm": {"type": "number"},
                     "lengthM": {"type": "number"},
                     "quantity": {"type": "integer"},
+                    "derivation": {"type": "string"},
                 },
             },
         },
@@ -96,6 +98,7 @@ EXTRACTION_SCHEMA = {
                     "longBarDiameterMm",
                     "stirrupDiameterMm",
                     "stirrupSpacingCm",
+                    "derivation",
                 ],
                 "properties": {
                     "name": {"type": "string"},
@@ -107,6 +110,7 @@ EXTRACTION_SCHEMA = {
                     "longBarDiameterMm": {"type": "number"},
                     "stirrupDiameterMm": {"type": "number"},
                     "stirrupSpacingCm": {"type": "number"},
+                    "derivation": {"type": "string"},
                 },
             },
         },
@@ -115,24 +119,120 @@ EXTRACTION_SCHEMA = {
 }
 
 EXTRACTION_PROMPT = """\
-אתה מהנדס כמויות. לפניך תוכנית קונסטרוקציה (שרטוט בניין). חלץ ממנה כתב כמויות \
-לזיון ברזל, כהצעה שתיבדק על ידי אדם:
+אתה מהנדס כמויות. לפניך תוכנית קונסטרוקציה (שרטוט בניין) — תמונה כללית של כל \
+גיליון ולאחריה הגדלות של רבעי הגיליון, כדי שתוכל לקרוא גם טקסטים קטנים. \
+חלץ כתב כמויות לזיון ברזל, כהצעה שתיבדק על ידי אדם:
 
-1. meshes — שטחים מלבניים שמכוסים ברשתות ברזל מרותכות (תקרות, רצפות, קירות). \
-לכל שטח: שם קצר בעברית, אורך ורוחב במטרים. אם שטח אינו מלבני, פרק אותו למלבנים.
-2. bars — מוטות ברזל בודדים המופיעים בתוכנית (קורות, זיון נוסף): קוטר במ"מ, \
-אורך במטרים, כמות.
+1. meshes — שטחים המכוסים ברשתות ברזל מרותכות (תקרות, רצפות, קירות). שים לב:
+   - אזורי רשת מסומנים בדרך כלל כשטחים מקווקווים/מוצללים, או בהערה כללית \
+("רשת Ø8@20 בכל התקרה") — במקרה כזה השטח הוא כל שטח האלמנט.
+   - מדוד מידות מקווי המידות (בס"מ בדרך כלל) ומרשת הצירים של התוכנית.
+   - שטח לא מלבני (צורת L, מצולע) — פרק למלבנים, שורה לכל מלבן.
+   - אם המידה מוערכת ולא מפורשת — כלול את השטח בכל זאת, וציין ב-notes שמדובר \
+בהערכה ולפי מה הערכת. עדיף שטח מוערך ומסומן מאשר השמטה שקטה.
+2. bars — מוטות ברזל בודדים (קורות, זיון נוסף): קוטר במ"מ, אורך במטרים, כמות.
 3. columns — עמודים: שם/סימון, כמות עמודים זהים, מידות חתך בס"מ (רוחב/עומק), \
-גובה במטרים, מספר מוטות אורכיים וקוטרם במ"מ, קוטר חישוקים במ"מ ומרווח חישוקים בס"מ. \
-העזר בתוכניות החתך אם קיימות.
-4. notes — הערות חשובות בעברית: אי-ודאויות, נתונים חסרים, הנחות שהנחת, \
-וקנה מידה אם זוהה.
+גובה במטרים, מספר מוטות אורכיים וקוטרם במ"מ, קוטר חישוקים במ"מ ומרווח חישוקים \
+בס"מ. העזר בתוכניות החתך אם קיימות.
+4. notes — הערות חשובות בעברית: אי-ודאויות, הנחות והערכות שביצעת, נתונים \
+חסרים, וקנה מידה אם זוהה.
+
+לכל פריט (רשת, מוט, עמוד) מלא גם שדה derivation: הסבר קצר וקריא בעברית איך \
+הגעת למספרים — מאיזה כיתוב או אזור בתוכנית הפריט נלקח, איך נמדדו או חושבו \
+המידות והכמות (למשל "נמדד מקווי המידות בין צירים 5–7"), ואילו הנחות הנחת. \
+ההסבר מיועד למשתמש שרוצה לוודא את החישוב מול התוכנית.
 
 כללים:
-- אל תמציא נתונים. אם מידה לא ברורה — אל תכלול את הפריט, וציין זאת ב-notes.
-- שים לב לסימונים מקובלים בישראל: Ø או ⌀ לקוטר, @ למרווח, ס"מ/מ'.
+- נהל את החשיבה שלך בעברית — סיכום החשיבה מוצג למשתמש כחיווי התקדמות חי.
+- מוטות ועמודים: אל תמציא נתונים — אם מספר לא קריא, אל תכלול וציין ב-notes.
+- רשתות: מותר להעריך מידות מקנה המידה וקווי המידות, בתנאי שההנחה מתועדת ב-notes.
+- סימונים מקובלים בישראל: Ø או ⌀ לקוטר, @ למרווח, מידות בס"מ, ב.ע = ברזל עליון, \
+ב.ת = ברזל תחתון.
 - אם התוכנית אינה תוכנית קונסטרוקציה, החזר רשימות ריקות והסבר ב-notes.
 """
+
+
+MAX_EXTRACT_PAGES = 3
+IMAGE_MAX_EDGE = 2500  # רזולוציית התמונות הנשלחות למודל
+TILE_GRID = 2  # חלוקת כל עמוד ל-2×2 רבעים מוגדלים
+TILE_OVERLAP = 0.06  # חפיפה בין רבעים כדי לא לחתוך כיתובים בתפר
+
+_TILE_NAMES = {
+    (0, 0): "רבע שמאלי-עליון",
+    (0, 1): "רבע ימני-עליון",
+    (1, 0): "רבע שמאלי-תחתון",
+    (1, 1): "רבע ימני-תחתון",
+}
+
+
+def _image_block(png_bytes: bytes) -> dict:
+    return {
+        "type": "image",
+        "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data": base64.b64encode(png_bytes).decode(),
+        },
+    }
+
+
+def _pdf_to_content_blocks(data: bytes) -> tuple[list, int]:
+    """מרנדר את עמודי ה-PDF לתמונה כללית + רבעים מוגדלים, ומצרף את שכבת
+    הטקסט אם קיימת. גיליונות CAD גדולים אינם קריאים כתמונה אחת."""
+    import fitz  # pymupdf
+
+    pdf = fitz.open(stream=data, filetype="pdf")
+    blocks: list = []
+    page_count = len(pdf)
+
+    for page_index in range(min(page_count, MAX_EXTRACT_PAGES)):
+        page = pdf[page_index]
+        rect = page.rect
+        long_edge = max(rect.width, rect.height)
+
+        blocks.append(
+            {"type": "text", "text": f"עמוד {page_index + 1} — תמונה כללית:"}
+        )
+        overview_scale = IMAGE_MAX_EDGE / long_edge
+        pix = page.get_pixmap(matrix=fitz.Matrix(overview_scale, overview_scale))
+        blocks.append(_image_block(pix.tobytes("png")))
+
+        tile_scale = overview_scale * TILE_GRID
+        tile_w = rect.width / TILE_GRID
+        tile_h = rect.height / TILE_GRID
+        margin_x = tile_w * TILE_OVERLAP
+        margin_y = tile_h * TILE_OVERLAP
+        for row in range(TILE_GRID):
+            for col in range(TILE_GRID):
+                clip = fitz.Rect(
+                    max(rect.x0, rect.x0 + col * tile_w - margin_x),
+                    max(rect.y0, rect.y0 + row * tile_h - margin_y),
+                    min(rect.x1, rect.x0 + (col + 1) * tile_w + margin_x),
+                    min(rect.y1, rect.y0 + (row + 1) * tile_h + margin_y),
+                )
+                pix = page.get_pixmap(
+                    matrix=fitz.Matrix(tile_scale, tile_scale), clip=clip
+                )
+                blocks.append(
+                    {
+                        "type": "text",
+                        "text": f"עמוד {page_index + 1} — הגדלה, "
+                        f"{_TILE_NAMES[(row, col)]}:",
+                    }
+                )
+                blocks.append(_image_block(pix.tobytes("png")))
+
+        text = page.get_text().strip()
+        if text:
+            blocks.append(
+                {
+                    "type": "text",
+                    "text": f"שכבת הטקסט של עמוד {page_index + 1} "
+                    f"(כפי שחולצה מה-PDF):\n{text[:20000]}",
+                }
+            )
+
+    return blocks, page_count
 
 
 @app.get("/health")
@@ -158,82 +258,122 @@ async def extract_pdf(file: UploadFile) -> dict:
             detail="מפתח ה-API של Claude לא מוגדר בשרת (ANTHROPIC_API_KEY)",
         ) from exc
 
+    try:
+        content_blocks, page_count = _pdf_to_content_blocks(data)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail="עיבוד ה-PDF נכשל — ודא שהקובץ תקין"
+        ) from exc
+    if page_count > MAX_EXTRACT_PAGES:
+        content_blocks.append(
+            {
+                "type": "text",
+                "text": f"שים לב: לקובץ {page_count} עמודים אך נשלחו רק "
+                f"{MAX_EXTRACT_PAGES} הראשונים — ציין זאת ב-notes.",
+            }
+        )
+    content_blocks.append({"type": "text", "text": EXTRACTION_PROMPT})
+
     model = _selected_model()
     request_kwargs = dict(
         model=model,
         max_tokens=16000,
-        thinking={"type": "adaptive"},
+        # display=summarized מזרים סיכום קריא של החשיבה — משמש כחיווי התקדמות חי
+        thinking={"type": "adaptive", "display": "summarized"},
         output_config={
             "format": {"type": "json_schema", "schema": EXTRACTION_SCHEMA}
         },
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "document",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "application/pdf",
-                            "data": base64.b64encode(data).decode(),
-                        },
-                    },
-                    {"type": "text", "text": EXTRACTION_PROMPT},
-                ],
-            }
-        ],
+        messages=[{"role": "user", "content": content_blocks}],
     )
-    try:
-        if model == FABLE_MODEL:
-            # מסווגי הבטיחות של Fable עשויים לסרב לבקשות תמימות —
-            # fallback צד-שרת מריץ את אותה בקשה על Opus באותו round-trip
-            response = client.beta.messages.create(
-                **request_kwargs,
-                betas=["server-side-fallback-2026-06-01"],
-                fallbacks=[{"model": DEFAULT_MODEL}],
+
+    def ndjson(obj: dict) -> str:
+        return json.dumps(obj, ensure_ascii=False) + "\n"
+
+    def event_stream():
+        yield ndjson(
+            {"type": "progress", "text": "התוכנית נשלחה למודל, מתחיל ניתוח…\n\n"}
+        )
+        try:
+            if model == FABLE_MODEL:
+                # מסווגי הבטיחות של Fable עשויים לסרב לבקשות תמימות —
+                # fallback צד-שרת מריץ את אותה בקשה על Opus באותו round-trip
+                stream_cm = client.beta.messages.stream(
+                    **request_kwargs,
+                    betas=["server-side-fallback-2026-06-01"],
+                    fallbacks=[{"model": DEFAULT_MODEL}],
+                )
+            else:
+                stream_cm = client.messages.stream(**request_kwargs)
+            with stream_cm as stream:
+                for event in stream:
+                    if (
+                        event.type == "content_block_delta"
+                        and getattr(event.delta, "type", "") == "thinking_delta"
+                    ):
+                        chunk = getattr(event.delta, "thinking", "")
+                        if chunk:
+                            yield ndjson({"type": "progress", "text": chunk})
+                response = stream.get_final_message()
+        except anthropic.AuthenticationError:
+            yield ndjson(
+                {
+                    "type": "error",
+                    "detail": "מפתח ה-API של Claude חסר או שגוי בצד השרת",
+                }
             )
-        else:
-            response = client.messages.create(**request_kwargs)
-    except anthropic.AuthenticationError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail="מפתח ה-API של Claude חסר או שגוי בצד השרת",
-        ) from exc
-    except anthropic.RateLimitError as exc:
-        raise HTTPException(
-            status_code=502, detail="חריגה ממכסת הקריאות — נסה שוב בעוד רגע"
-        ) from exc
-    except anthropic.APIStatusError as exc:
-        raise HTTPException(
-            status_code=502, detail=f"שגיאת Claude API: {exc.message}"
-        ) from exc
-    except anthropic.APIConnectionError as exc:
-        raise HTTPException(
-            status_code=502, detail="אין חיבור ל-Claude API מהשרת"
-        ) from exc
-    except TypeError as exc:
-        # The SDK raises TypeError when no credential source is configured
-        raise HTTPException(
-            status_code=502,
-            detail="מפתח ה-API של Claude לא מוגדר בשרת (ANTHROPIC_API_KEY)",
-        ) from exc
+            return
+        except anthropic.RateLimitError:
+            yield ndjson(
+                {
+                    "type": "error",
+                    "detail": "חריגה ממכסת הקריאות — נסה שוב בעוד רגע",
+                }
+            )
+            return
+        except anthropic.APIStatusError as exc:
+            yield ndjson(
+                {"type": "error", "detail": f"שגיאת Claude API: {exc.message}"}
+            )
+            return
+        except anthropic.APIConnectionError:
+            yield ndjson(
+                {"type": "error", "detail": "אין חיבור ל-Claude API מהשרת"}
+            )
+            return
+        except TypeError:
+            # The SDK raises TypeError when no credential source is configured
+            yield ndjson(
+                {
+                    "type": "error",
+                    "detail": "מפתח ה-API של Claude לא מוגדר בשרת (ANTHROPIC_API_KEY)",
+                }
+            )
+            return
 
-    if response.stop_reason == "refusal":
-        raise HTTPException(
-            status_code=422, detail="המודל סירב לעבד את הקובץ הזה"
-        )
-    if response.stop_reason == "max_tokens":
-        raise HTTPException(
-            status_code=422,
-            detail="התוכנית מורכבת מדי לעיבוד בבקשה אחת — נסה לפצל את ה-PDF",
-        )
+        if response.stop_reason == "refusal":
+            yield ndjson(
+                {"type": "error", "detail": "המודל סירב לעבד את הקובץ הזה"}
+            )
+            return
+        if response.stop_reason == "max_tokens":
+            yield ndjson(
+                {
+                    "type": "error",
+                    "detail": "התוכנית מורכבת מדי לעיבוד בבקשה אחת — נסה לפצל את ה-PDF",
+                }
+            )
+            return
 
-    text = next(
-        (block.text for block in response.content if block.type == "text"), None
-    )
-    if text is None:
-        raise HTTPException(status_code=502, detail="תשובת המודל ריקה")
-    return json.loads(text)
+        text = next(
+            (block.text for block in response.content if block.type == "text"),
+            None,
+        )
+        if text is None:
+            yield ndjson({"type": "error", "detail": "תשובת המודל ריקה"})
+            return
+        yield ndjson({"type": "result", "data": json.loads(text)})
+
+    return StreamingResponse(event_stream(), media_type="application/x-ndjson")
 
 
 def _entity_length(entity) -> float:

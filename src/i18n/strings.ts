@@ -105,6 +105,7 @@ export const strings = {
   serverUrlPlaceholder: 'http://192.168.1.10:8000',
   extractAi: 'חלץ כמויות מהתוכנית (AI)',
   extracting: 'מחלץ כמויות מהתוכנית…',
+  extractingTitle: 'המודל מנתח את התוכנית…',
   extractFailed: 'חילוץ הכמויות נכשל',
   extractNeedsPlan: 'יש לצרף קובץ תוכנית קודם',
   extractNeedsServer: 'יש להזין כתובת שרת',
@@ -112,6 +113,15 @@ export const strings = {
   extractApply: 'הוסף לטופס',
   extractResult: (meshes: number, bars: number, columns: number) =>
     `נמצאו: ${meshes} שטחי רשת, ${bars} סוגי מוטות, ${columns} עמודים.\nהכמויות הן הצעה בלבד — בדוק אותן מול התוכנית לפני הזמנה!`,
+
+  // AI extraction report
+  aiReportButton: 'איך המודל חישב?',
+  aiReportTitle: 'הסבר החישוב של המודל',
+  aiReportDisclaimer:
+    'ההסברים נכתבו על ידי מודל AI ומבוססים על קריאת התוכנית. בדוק כל פריט מול התוכנית לפני הזמנה.',
+  aiReportNotes: 'הערות המודל',
+  aiReportPrint: 'הדפס PDF',
+  close: 'סגור',
 
   // Shared document
   docTitle: 'הזמנת רשתות ברזל',

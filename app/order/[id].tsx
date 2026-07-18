@@ -21,6 +21,8 @@ import { getOrder } from '../../src/storage/orderRepo';
 import { orderToText } from '../../src/share/orderText';
 import { orderToHtml } from '../../src/share/orderHtml';
 import { notify } from '../../src/ui/alerts';
+import { printHtmlAsPdf } from '../../src/ui/printHtml';
+import ExtractionReportModal from '../../src/components/ExtractionReportModal';
 import { strings } from '../../src/i18n/strings';
 
 function fmtDate(iso: string): string {
@@ -32,6 +34,7 @@ export default function OrderDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [order, setOrder] = useState<Order | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -56,29 +59,7 @@ export default function OrderDetailScreen() {
 
   const shareAsPdf = async () => {
     if (!order) return;
-    if (Platform.OS === 'web') {
-      // Print.printAsync בווב מדפיס את העמוד הנוכחי ומתעלם מה-HTML —
-      // פותחים חלון עם מסמך ההזמנה ומדפיסים אותו (שמירה כ-PDF מהדיאלוג)
-      const win = window.open('', '_blank');
-      if (!win) {
-        notify(strings.popupBlocked);
-        return;
-      }
-      win.document.open();
-      win.document.write(orderToHtml(order));
-      win.document.close();
-      win.document.title = order.title || strings.docTitle;
-      win.focus();
-      setTimeout(() => win.print(), 350);
-      return;
-    }
-    const { uri } = await Print.printToFileAsync({
-      html: orderToHtml(order),
-    });
-    await Sharing.shareAsync(uri, {
-      mimeType: 'application/pdf',
-      dialogTitle: strings.docTitle,
-    });
+    await printHtmlAsPdf(orderToHtml(order), order.title || strings.docTitle);
   };
 
   const openPlan = () => {
@@ -107,6 +88,16 @@ export default function OrderDetailScreen() {
         options={{ title: order.title || strings.detailTitle }}
       />
       <ScrollView contentContainerStyle={styles.content}>
+        {order.aiExtraction && (
+          <Pressable
+            style={styles.reportBtn}
+            onPress={() => setShowReport(true)}
+          >
+            <Text style={styles.reportBtnText}>
+              🔍 {strings.aiReportButton}
+            </Text>
+          </Pressable>
+        )}
         <Text style={styles.meta}>
           {strings.createdAt}: {fmtDate(order.createdAt)} · {strings.overlap}:{' '}
           {order.overlapCm} ס"מ
@@ -242,6 +233,15 @@ export default function OrderDetailScreen() {
           </Text>
         </Pressable>
       </View>
+
+      {order.aiExtraction && (
+        <ExtractionReportModal
+          visible={showReport}
+          report={order.aiExtraction}
+          orderTitle={order.title}
+          onClose={() => setShowReport(false)}
+        />
+      )}
     </View>
   );
 }
@@ -268,6 +268,20 @@ const styles = StyleSheet.create({
     color: '#777',
     textAlign: 'right',
     marginBottom: 8,
+  },
+  reportBtn: {
+    backgroundColor: '#fdf3e3',
+    borderWidth: 1,
+    borderColor: '#e5c88f',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  reportBtnText: {
+    color: '#7c3f00',
+    fontSize: 14,
+    fontWeight: '700',
   },
   sectionTitle: {
     fontSize: 17,

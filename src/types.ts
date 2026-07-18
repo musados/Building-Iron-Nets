@@ -80,6 +80,20 @@ export interface ColumnResult {
   totalWeightKg: number;
 }
 
+/** פריט בדוח ההסברים של חילוץ ה-AI: מה נמצא ואיך המודל חישב */
+export interface AiReportItem {
+  label: string;
+  derivation: string;
+}
+
+export interface AiExtractionReport {
+  extractedAt: string;
+  meshes: AiReportItem[];
+  bars: AiReportItem[];
+  columns: AiReportItem[];
+  notes: string;
+}
+
 export interface Order {
   id: string;
   createdAt: string;
@@ -97,6 +111,7 @@ export interface Order {
   columnResults?: ColumnResult[];
   planFileName?: string;
   planFileUri?: string;
+  aiExtraction?: AiExtractionReport;
 }
 
 export interface OrderSummary {
