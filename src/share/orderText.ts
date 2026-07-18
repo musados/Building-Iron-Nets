@@ -64,7 +64,8 @@ export function orderToText(order: Order): string {
       const result = order.results.find((r) => r.areaId === area.id);
       if (!result) continue;
       lines.push(
-        `• ${area.name}: ${area.lengthM}×${area.widthM} מ' → ` +
+        `• ${area.name}: ${area.lengthM}×${area.widthM} מ' · ` +
+          `רשת Ø${area.mesh.wireDiameterMm}@${area.mesh.spacingCm} → ` +
           `${result.sheetCount} רשתות (${result.countAlongLength}×${result.countAlongWidth})`
       );
     }

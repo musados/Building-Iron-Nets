@@ -48,6 +48,8 @@ function newAreaDraft(index: number): AreaDraft {
     name: `${strings.areaDefaultName} ${index}`,
     length: '',
     width: '',
+    diameter: '',
+    spacing: '',
   };
 }
 
@@ -75,7 +77,9 @@ function reportFromExtraction(e: ExtractionResult): AiExtractionReport {
   return {
     extractedAt: new Date().toISOString(),
     meshes: e.meshes.map((m) => ({
-      label: `${m.name} — ${m.lengthM}×${m.widthM} מ'`,
+      label:
+        `${m.name} — ${m.lengthM}×${m.widthM} מ'` +
+        (m.wireDiameterMm > 0 ? ` · Ø${m.wireDiameterMm}@${m.spacingCm}` : ''),
       derivation: m.derivation,
     })),
     bars: e.bars.map((b) => ({
@@ -101,12 +105,20 @@ function areasFromDrafts(drafts: AreaDraft[], mesh: MeshSpec): RectArea[] | null
     const lengthM = parsePositive(d.length);
     const widthM = parsePositive(d.width);
     if (!lengthM || !widthM) return null;
+    // שדות ריקים יורשים מהמפרט הכללי של ההזמנה
+    const wireDiameterMm = d.diameter.trim()
+      ? parsePositive(d.diameter)
+      : mesh.wireDiameterMm;
+    const spacingCm = d.spacing.trim()
+      ? parsePositive(d.spacing)
+      : mesh.spacingCm;
+    if (!wireDiameterMm || !spacingCm) return null;
     areas.push({
       id: d.id,
       name: d.name.trim() || strings.areaDefaultName,
       lengthM,
       widthM,
-      mesh: { ...mesh },
+      mesh: { ...mesh, wireDiameterMm, spacingCm },
     });
   }
   return areas;
@@ -210,6 +222,14 @@ export default function PlanOrderScreen() {
           name: a.name,
           length: String(a.lengthM),
           width: String(a.widthM),
+          diameter:
+            a.mesh.wireDiameterMm !== firstMesh.wireDiameterMm
+              ? String(a.mesh.wireDiameterMm)
+              : '',
+          spacing:
+            a.mesh.spacingCm !== firstMesh.spacingCm
+              ? String(a.mesh.spacingCm)
+              : '',
         }))
       );
       setBarDrafts(
@@ -348,6 +368,8 @@ export default function PlanOrderScreen() {
           name: m.name || `${strings.areaDefaultName} ${prev.length + i + 1}`,
           length: String(m.lengthM),
           width: String(m.widthM),
+          diameter: m.wireDiameterMm > 0 ? String(m.wireDiameterMm) : '',
+          spacing: m.spacingCm > 0 ? String(m.spacingCm) : '',
         })),
       ]);
     }
@@ -576,6 +598,8 @@ export default function PlanOrderScreen() {
               setAreaDrafts((prev) => prev.filter((x) => x.id !== d.id))
             }
             canDelete
+            defaultDiameterMm={mesh.wireDiameterMm}
+            defaultSpacingCm={mesh.spacingCm}
           />
         ))}
         <Pressable

@@ -199,7 +199,9 @@ export default function OrderDetailScreen() {
                 {area.name}: {area.lengthM}×{area.widthM} מ'
               </Text>
               <Text style={styles.cardMeta}>
-                {r.sheetCount} רשתות · {strings.layout}: {r.countAlongLength}×
+                רשת Ø{area.mesh.wireDiameterMm} @ {area.mesh.spacingCm}/
+                {area.mesh.spacingCm} · {r.sheetCount} רשתות ·{' '}
+                {strings.layout}: {r.countAlongLength}×
                 {r.countAlongWidth} (
                 {r.orientation === 'rotated'
                   ? strings.orientationRotated

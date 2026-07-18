@@ -8,6 +8,10 @@ export interface AreaDraft {
   name: string;
   length: string;
   width: string;
+  /** override של קוטר הרשת לשטח זה; ריק = ירושה מהמפרט הכללי */
+  diameter: string;
+  /** override של מרווח העיניים לשטח זה; ריק = ירושה מהמפרט הכללי */
+  spacing: string;
 }
 
 interface Props {
@@ -15,9 +19,18 @@ interface Props {
   onChange: (draft: AreaDraft) => void;
   onDelete: () => void;
   canDelete: boolean;
+  defaultDiameterMm: number;
+  defaultSpacingCm: number;
 }
 
-export default function RectRow({ draft, onChange, onDelete, canDelete }: Props) {
+export default function RectRow({
+  draft,
+  onChange,
+  onDelete,
+  canDelete,
+  defaultDiameterMm,
+  defaultSpacingCm,
+}: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
@@ -44,6 +57,20 @@ export default function RectRow({ draft, onChange, onDelete, canDelete }: Props)
           label={strings.widthLabel}
           value={draft.width}
           onChangeText={(width) => onChange({ ...draft, width })}
+        />
+      </View>
+      <View style={styles.dimsRow}>
+        <NumberField
+          label={strings.areaDiameterLabel}
+          value={draft.diameter}
+          onChangeText={(diameter) => onChange({ ...draft, diameter })}
+          placeholder={String(defaultDiameterMm)}
+        />
+        <NumberField
+          label={strings.areaSpacingLabel}
+          value={draft.spacing}
+          onChangeText={(spacing) => onChange({ ...draft, spacing })}
+          placeholder={String(defaultSpacingCm)}
         />
       </View>
     </View>

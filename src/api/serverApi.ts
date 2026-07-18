@@ -9,6 +9,10 @@ export interface ExtractedMesh {
   name: string;
   lengthM: number;
   widthM: number;
+  /** 0 = לא זוהה בתוכנית — האפליקציה תשתמש בברירת המחדל */
+  wireDiameterMm: number;
+  /** 0 = לא זוהה בתוכנית — האפליקציה תשתמש בברירת המחדל */
+  spacingCm: number;
   derivation: string;
 }
 

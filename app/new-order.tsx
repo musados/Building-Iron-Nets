@@ -27,6 +27,8 @@ function newDraft(index: number): AreaDraft {
     name: `${strings.areaDefaultName} ${index}`,
     length: '',
     width: '',
+    diameter: '',
+    spacing: '',
   };
 }
 
@@ -39,12 +41,27 @@ function draftsToAreas(
     const lengthM = parseNumber(d.length);
     const widthM = parseNumber(d.width);
     if (!lengthM || !widthM || lengthM <= 0 || widthM <= 0) return null;
+    // שדות ריקים יורשים מהמפרט הכללי של ההזמנה
+    const wireDiameterMm = d.diameter.trim()
+      ? parseNumber(d.diameter)
+      : mesh.wireDiameterMm;
+    const spacingCm = d.spacing.trim()
+      ? parseNumber(d.spacing)
+      : mesh.spacingCm;
+    if (
+      !wireDiameterMm ||
+      !spacingCm ||
+      wireDiameterMm <= 0 ||
+      spacingCm <= 0
+    ) {
+      return null;
+    }
     areas.push({
       id: d.id,
       name: d.name.trim() || strings.areaDefaultName,
       lengthM,
       widthM,
-      mesh: { ...mesh },
+      mesh: { ...mesh, wireDiameterMm, spacingCm },
     });
   }
   return areas;
@@ -83,6 +100,14 @@ export default function NewOrderScreen() {
           name: a.name,
           length: String(a.lengthM),
           width: String(a.widthM),
+          diameter:
+            a.mesh.wireDiameterMm !== firstMesh.wireDiameterMm
+              ? String(a.mesh.wireDiameterMm)
+              : '',
+          spacing:
+            a.mesh.spacingCm !== firstMesh.spacingCm
+              ? String(a.mesh.spacingCm)
+              : '',
         }))
       );
     });
@@ -192,6 +217,8 @@ export default function NewOrderScreen() {
               setDrafts((prev) => prev.filter((x) => x.id !== d.id))
             }
             canDelete={drafts.length > 1}
+            defaultDiameterMm={mesh.wireDiameterMm}
+            defaultSpacingCm={mesh.spacingCm}
           />
         ))}
         <Pressable

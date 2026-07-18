@@ -31,6 +31,8 @@ export const strings = {
   areaDefaultName: 'שטח',
   lengthLabel: 'אורך (מ\')',
   widthLabel: 'רוחב (מ\')',
+  areaDiameterLabel: 'קוטר רשת (מ"מ)',
+  areaSpacingLabel: 'מרווח (ס"מ)',
   saveAndShow: 'שמור והצג',
   invalidInput: 'יש למלא מידות תקינות בכל השטחים',
   liveSummary: (sheets: number, weightKg: number) =>
