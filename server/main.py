@@ -12,6 +12,7 @@ Requires ANTHROPIC_API_KEY in the environment (or an `ant auth login` profile).
 import base64
 import io
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -40,6 +41,13 @@ app.add_middleware(
 )
 
 MAX_PDF_BYTES = 32 * 1024 * 1024  # Claude API request limit
+
+DEFAULT_MODEL = "claude-opus-4-8"
+FABLE_MODEL = "claude-fable-5"
+
+
+def _selected_model() -> str:
+    return os.environ.get("CLAUDE_MODEL", "").strip() or DEFAULT_MODEL
 
 # Matches ExtractionResult in the app (src/api/serverApi.ts)
 EXTRACTION_SCHEMA = {
@@ -150,31 +158,42 @@ async def extract_pdf(file: UploadFile) -> dict:
             detail="מפתח ה-API של Claude לא מוגדר בשרת (ANTHROPIC_API_KEY)",
         ) from exc
 
-    try:
-        response = client.messages.create(
-            model="claude-opus-4-8",
-            max_tokens=16000,
-            thinking={"type": "adaptive"},
-            output_config={
-                "format": {"type": "json_schema", "schema": EXTRACTION_SCHEMA}
-            },
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "document",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "application/pdf",
-                                "data": base64.b64encode(data).decode(),
-                            },
+    model = _selected_model()
+    request_kwargs = dict(
+        model=model,
+        max_tokens=16000,
+        thinking={"type": "adaptive"},
+        output_config={
+            "format": {"type": "json_schema", "schema": EXTRACTION_SCHEMA}
+        },
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": base64.b64encode(data).decode(),
                         },
-                        {"type": "text", "text": EXTRACTION_PROMPT},
-                    ],
-                }
-            ],
-        )
+                    },
+                    {"type": "text", "text": EXTRACTION_PROMPT},
+                ],
+            }
+        ],
+    )
+    try:
+        if model == FABLE_MODEL:
+            # מסווגי הבטיחות של Fable עשויים לסרב לבקשות תמימות —
+            # fallback צד-שרת מריץ את אותה בקשה על Opus באותו round-trip
+            response = client.beta.messages.create(
+                **request_kwargs,
+                betas=["server-side-fallback-2026-06-01"],
+                fallbacks=[{"model": DEFAULT_MODEL}],
+            )
+        else:
+            response = client.messages.create(**request_kwargs)
     except anthropic.AuthenticationError as exc:
         raise HTTPException(
             status_code=502,
