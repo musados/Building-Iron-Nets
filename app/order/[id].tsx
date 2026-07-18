@@ -57,8 +57,19 @@ export default function OrderDetailScreen() {
   const shareAsPdf = async () => {
     if (!order) return;
     if (Platform.OS === 'web') {
-      // בדפדפן נפתח דיאלוג הדפסה — משם אפשר לשמור כ-PDF
-      await Print.printAsync({ html: orderToHtml(order) });
+      // Print.printAsync בווב מדפיס את העמוד הנוכחי ומתעלם מה-HTML —
+      // פותחים חלון עם מסמך ההזמנה ומדפיסים אותו (שמירה כ-PDF מהדיאלוג)
+      const win = window.open('', '_blank');
+      if (!win) {
+        notify(strings.popupBlocked);
+        return;
+      }
+      win.document.open();
+      win.document.write(orderToHtml(order));
+      win.document.close();
+      win.document.title = order.title || strings.docTitle;
+      win.focus();
+      setTimeout(() => win.print(), 350);
       return;
     }
     const { uri } = await Print.printToFileAsync({

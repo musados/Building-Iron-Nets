@@ -52,6 +52,7 @@ export const strings = {
   layout: 'פריסה',
   sharePdf: 'שתף PDF',
   copiedToClipboard: 'ההזמנה הועתקה ללוח',
+  popupBlocked: 'הדפדפן חסם את חלון המסמך — אפשר חלונות קופצים לאתר ונסה שוב',
   shareText: 'שתף כטקסט',
   edit: 'ערוך',
   orderNotFound: 'ההזמנה לא נמצאה',
