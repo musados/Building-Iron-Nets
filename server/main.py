@@ -19,10 +19,16 @@ from pathlib import Path
 
 import anthropic
 import ezdxf
+from dotenv import load_dotenv
 from ezdxf import recover
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+
+# בהרצה מקומית: טוען .env מתיקיית השרת או משורש הפרויקט.
+# בקונטיינר המשתנים מגיעים מ-docker compose ולא נדרס דבר.
+load_dotenv(Path(__file__).parent / ".env")
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 app = FastAPI(title="IronNets Server")
 

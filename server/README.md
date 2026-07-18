@@ -22,13 +22,16 @@ pip install -r requirements.txt
 
 ## מפתח API של Claude
 
-החילוץ מ-PDF דורש חשבון Claude API. הגדר את המפתח לפני ההרצה:
+החילוץ מ-PDF דורש חשבון Claude API. העתק את `.env.example` שבשורש הפרויקט
+ל-`.env` ומלא את המפתח:
 
 ```powershell
-$env:ANTHROPIC_API_KEY = "sk-ant-..."
+Copy-Item ..\.env.example ..\.env   # ואז ערוך את ANTHROPIC_API_KEY
 ```
 
-(אם מחובר דרך `ant auth login`, ה-SDK ימצא את ההרשאות לבד ואין צורך במשתנה.)
+השרת טוען אוטומטית `.env` מתיקיית השרת או משורש הפרויקט (python-dotenv).
+לחלופין אפשר משתנה סביבה רגיל (`$env:ANTHROPIC_API_KEY = "sk-ant-..."`),
+או חיבור דרך `ant auth login` — ה-SDK ימצא את ההרשאות לבד.
 
 ## הרצה
 

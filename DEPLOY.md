@@ -10,9 +10,11 @@ server/          ←  Dockerfile      ←  קונטיינר server (FastAPI, פ�
 ## הרצה
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...   # נדרש לחילוץ AI בלבד
+cp .env.example .env     # ומלא את ANTHROPIC_API_KEY (נדרש לחילוץ AI בלבד)
 docker compose up --build -d
 ```
+
+‏docker compose קורא את `.env` אוטומטית. הקובץ ב-.gitignore ולא נכנס ל-git.
 
 - ווב: http://localhost:8080
 - ‏API: ‏http://localhost:8000 (בדיקה: `/health`)
