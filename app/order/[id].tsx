@@ -94,6 +94,55 @@ export default function OrderDetailScreen() {
           </View>
         ))}
 
+        {(order.barLines?.length ?? 0) > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>{strings.barLinesTitle}</Text>
+            {order.barLines!.map((line, i) => (
+              <View key={i} style={styles.card}>
+                <Text style={styles.cardTitle}>
+                  מוט Ø{line.diameterMm} מ"מ × {line.lengthM} מ'
+                </Text>
+                <Text style={styles.cardMeta}>
+                  {strings.quantity}: {line.quantity} {strings.units} ·{' '}
+                  {strings.unitWeight}: {line.unitWeightKg.toFixed(1)} ק"ג ·{' '}
+                  {strings.totalWeight}: {line.totalWeightKg.toFixed(0)} ק"ג
+                </Text>
+              </View>
+            ))}
+          </>
+        )}
+
+        {(order.columns?.length ?? 0) > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>{strings.columnsBreakdown}</Text>
+            {order.columns!.map((col) => {
+              const r = order.columnResults?.find(
+                (res) => res.columnId === col.id
+              );
+              if (!r) return null;
+              return (
+                <View key={col.id} style={styles.card}>
+                  <Text style={styles.cardTitle}>
+                    {col.name} × {col.count} — {col.widthCm}/{col.depthCm} ס"מ,
+                    גובה {col.heightM} מ'
+                  </Text>
+                  <Text style={styles.cardMeta}>
+                    {strings.longBars}: {r.longBarsTotal} × Ø
+                    {col.longBarDiameterMm} ({strings.cutLength}{' '}
+                    {r.longBarLengthM} מ') · {r.longBarsWeightKg.toFixed(0)} ק"ג
+                  </Text>
+                  <Text style={styles.cardMeta}>
+                    {strings.stirrups}: {r.stirrupsTotal} × Ø
+                    {col.stirrupDiameterMm} @ {col.stirrupSpacingCm} ס"מ (
+                    {strings.cutLength} {r.stirrupLengthM.toFixed(2)} מ') ·{' '}
+                    {r.stirrupsWeightKg.toFixed(0)} ק"ג
+                  </Text>
+                </View>
+              );
+            })}
+          </>
+        )}
+
         <View style={styles.totalsBox}>
           <Text style={styles.totalsText}>
             {strings.grandTotalSheets}: {totalSheets}
@@ -102,6 +151,22 @@ export default function OrderDetailScreen() {
             {strings.grandTotalWeight}: {order.totalWeightKg.toFixed(0)} ק"ג
           </Text>
         </View>
+
+        {order.planFileUri && (
+          <Pressable
+            style={styles.planBtn}
+            onPress={() =>
+              router.push(
+                `/plan-viewer?uri=${encodeURIComponent(order.planFileUri!)}`
+              )
+            }
+          >
+            <Text style={styles.planBtnText}>
+              {strings.viewPlan}
+              {order.planFileName ? ` — ${order.planFileName}` : ''}
+            </Text>
+          </Pressable>
+        )}
 
         <Text style={styles.sectionTitle}>{strings.areasBreakdown}</Text>
         {order.areas.map((area) => {
@@ -134,7 +199,13 @@ export default function OrderDetailScreen() {
         </Pressable>
         <Pressable
           style={[styles.actionBtn, styles.editBtn]}
-          onPress={() => router.push(`/new-order?id=${order.id}`)}
+          onPress={() =>
+            router.push(
+              order.orderType === 'plan'
+                ? `/plan-order?id=${order.id}`
+                : `/new-order?id=${order.id}`
+            )
+          }
         >
           <Text style={[styles.actionText, styles.editText]}>
             {strings.edit}
@@ -196,6 +267,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'right',
     lineHeight: 20,
+  },
+  planBtn: {
+    backgroundColor: '#7c3f00',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  planBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   totalsBox: {
     backgroundColor: '#f5f0e8',

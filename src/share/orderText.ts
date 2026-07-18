@@ -20,6 +20,38 @@ export function orderToText(order: Order): string {
         `${line.quantity} ${strings.units} (${line.totalWeightKg.toFixed(0)} ק"ג)`
     );
   }
+  if ((order.barLines?.length ?? 0) > 0) {
+    lines.push('');
+    lines.push(`${strings.barLinesTitle}:`);
+    for (const line of order.barLines!) {
+      lines.push(
+        `• מוט Ø${line.diameterMm} מ"מ × ${line.lengthM} מ' — ` +
+          `${line.quantity} ${strings.units} (${line.totalWeightKg.toFixed(0)} ק"ג)`
+      );
+    }
+  }
+
+  if ((order.columns?.length ?? 0) > 0) {
+    lines.push('');
+    lines.push(`${strings.columnsBreakdown}:`);
+    for (const col of order.columns!) {
+      const r = order.columnResults?.find((res) => res.columnId === col.id);
+      if (!r) continue;
+      lines.push(
+        `• ${col.name} × ${col.count} (${col.widthCm}/${col.depthCm} ס"מ, גובה ${col.heightM} מ'):`
+      );
+      lines.push(
+        `   ${strings.longBars}: ${r.longBarsTotal} × Ø${col.longBarDiameterMm} ` +
+          `באורך ${r.longBarLengthM} מ' (${r.longBarsWeightKg.toFixed(0)} ק"ג)`
+      );
+      lines.push(
+        `   ${strings.stirrups}: ${r.stirrupsTotal} × Ø${col.stirrupDiameterMm} ` +
+          `@ ${col.stirrupSpacingCm} ס"מ, אורך חיתוך ${r.stirrupLengthM.toFixed(2)} מ' ` +
+          `(${r.stirrupsWeightKg.toFixed(0)} ק"ג)`
+      );
+    }
+  }
+
   lines.push('');
   const totalSheets = order.lines.reduce((s, l) => s + l.quantity, 0);
   lines.push(`${strings.grandTotalSheets}: ${totalSheets}`);

@@ -80,6 +80,62 @@ export function orderToHtml(order: Order): string {
     ${lineRows}
   </table>
 
+  ${
+    (order.barLines?.length ?? 0) > 0
+      ? `<h2>${esc(strings.barLinesTitle)}</h2>
+  <table>
+    <tr>
+      <th>מפרט</th>
+      <th>${esc(strings.quantity)}</th>
+      <th>${esc(strings.unitWeight)} (ק"ג)</th>
+      <th>${esc(strings.totalWeight)} (ק"ג)</th>
+    </tr>
+    ${order
+      .barLines!.map(
+        (line) => `<tr>
+      <td>מוט Ø${line.diameterMm} מ"מ × ${line.lengthM} מ'</td>
+      <td>${line.quantity}</td>
+      <td>${line.unitWeightKg.toFixed(1)}</td>
+      <td>${line.totalWeightKg.toFixed(0)}</td>
+    </tr>`
+      )
+      .join('\n')}
+  </table>`
+      : ''
+  }
+
+  ${
+    (order.columns?.length ?? 0) > 0
+      ? `<h2>${esc(strings.columnsBreakdown)}</h2>
+  <table>
+    <tr>
+      <th>שם</th>
+      <th>כמות</th>
+      <th>חתך (ס"מ)</th>
+      <th>גובה (מ')</th>
+      <th>${esc(strings.longBars)}</th>
+      <th>${esc(strings.stirrups)}</th>
+      <th>${esc(strings.totalWeight)} (ק"ג)</th>
+    </tr>
+    ${order
+      .columns!.map((col) => {
+        const r = order.columnResults?.find((res) => res.columnId === col.id);
+        if (!r) return '';
+        return `<tr>
+      <td>${esc(col.name)}</td>
+      <td>${col.count}</td>
+      <td>${col.widthCm}/${col.depthCm}</td>
+      <td>${col.heightM}</td>
+      <td>${r.longBarsTotal} × Ø${col.longBarDiameterMm} @ ${r.longBarLengthM} מ'</td>
+      <td>${r.stirrupsTotal} × Ø${col.stirrupDiameterMm}, ${r.stirrupLengthM.toFixed(2)} מ'</td>
+      <td>${r.totalWeightKg.toFixed(0)}</td>
+    </tr>`;
+      })
+      .join('\n')}
+  </table>`
+      : ''
+  }
+
   <h2>${esc(strings.areasBreakdown)}</h2>
   <table>
     <tr>

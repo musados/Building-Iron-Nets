@@ -34,6 +34,52 @@ export interface OrderLine {
   totalWeightKg: number;
 }
 
+export type OrderType = 'simple' | 'plan';
+
+/** מוט בודד: קוטר, אורך חיתוך וכמות */
+export interface BarItem {
+  id: string;
+  diameterMm: number;
+  lengthM: number;
+  quantity: number;
+}
+
+/** שורת מוטות מקובצת לפי קוטר ואורך */
+export interface BarLine {
+  diameterMm: number;
+  lengthM: number;
+  quantity: number;
+  unitWeightKg: number;
+  totalWeightKg: number;
+}
+
+/** עמוד: מידות חתך, גובה, זיון אורכי וחישוקים */
+export interface ColumnItem {
+  id: string;
+  name: string;
+  count: number;
+  widthCm: number;
+  depthCm: number;
+  heightM: number;
+  coverCm: number;
+  longBarCount: number;
+  longBarDiameterMm: number;
+  stirrupDiameterMm: number;
+  stirrupSpacingCm: number;
+}
+
+export interface ColumnResult {
+  columnId: string;
+  longBarLengthM: number;
+  longBarsTotal: number;
+  longBarsWeightKg: number;
+  stirrupLengthM: number;
+  stirrupsPerColumn: number;
+  stirrupsTotal: number;
+  stirrupsWeightKg: number;
+  totalWeightKg: number;
+}
+
 export interface Order {
   id: string;
   createdAt: string;
@@ -44,6 +90,13 @@ export interface Order {
   lines: OrderLine[];
   totalWeightKg: number;
   notes?: string;
+  orderType?: OrderType;
+  bars?: BarItem[];
+  barLines?: BarLine[];
+  columns?: ColumnItem[];
+  columnResults?: ColumnResult[];
+  planFileName?: string;
+  planFileUri?: string;
 }
 
 export interface OrderSummary {

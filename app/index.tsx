@@ -70,7 +70,19 @@ export default function HistoryScreen() {
       />
       <Pressable
         style={styles.newButton}
-        onPress={() => router.push('/new-order')}
+        onPress={() =>
+          Alert.alert(strings.chooseOrderType, '', [
+            {
+              text: `${strings.simpleOrder} — ${strings.simpleOrderDesc}`,
+              onPress: () => router.push('/new-order'),
+            },
+            {
+              text: `${strings.planOrder} — ${strings.planOrderDesc}`,
+              onPress: () => router.push('/plan-order'),
+            },
+            { text: strings.cancel, style: 'cancel' },
+          ])
+        }
       >
         <Text style={styles.newButtonText}>+ {strings.newOrder}</Text>
       </Pressable>
