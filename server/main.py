@@ -22,7 +22,7 @@ import anthropic
 import ezdxf
 from dotenv import load_dotenv
 from ezdxf import recover
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 
@@ -128,9 +128,11 @@ EXTRACTION_SCHEMA = {
 }
 
 EXTRACTION_PROMPT = """\
-אתה מהנדס כמויות. לפניך תוכנית קונסטרוקציה (שרטוט בניין) — תמונה כללית של כל \
-גיליון ולאחריה הגדלות של רבעי הגיליון, כדי שתוכל לקרוא גם טקסטים קטנים. \
-חלץ כתב כמויות לזיון ברזל, כהצעה שתיבדק על ידי אדם:
+אתה מהנדס כמויות. לפניך תוכנית קונסטרוקציה (שרטוט בניין) — ייתכן שמצורפים \
+כמה קבצים: תוכנית קומה, תוכניות חתך של עמודים/קורות, פרטים וכו'. לכל גיליון \
+מוצגת תמונה כללית ולאחריה הגדלות של רבעי הגיליון, כדי שתוכל לקרוא גם טקסטים \
+קטנים. הצלב מידע בין הקבצים — למשל זיון עמודים מתוכניות החתך מול מיקומם \
+בתוכנית הקומה. חלץ כתב כמויות לזיון ברזל, כהצעה שתיבדק על ידי אדם:
 
 1. meshes — שטחים המכוסים ברשתות ברזל מרותכות (תקרות, רצפות, קירות). שים לב:
    - אזורי רשת מסומנים בדרך כלל כשטחים מקווקווים/מוצללים, או בהערה כללית \
@@ -166,7 +168,7 @@ EXTRACTION_PROMPT = """\
 """
 
 
-MAX_EXTRACT_PAGES = 3
+MAX_EXTRACT_PAGES = 4  # תקציב עמודים כולל לכל הקבצים בבקשה אחת
 IMAGE_MAX_EDGE = 2500  # רזולוציית התמונות הנשלחות למודל
 TILE_GRID = 2  # חלוקת כל עמוד ל-2×2 רבעים מוגדלים
 TILE_OVERLAP = 0.06  # חפיפה בין רבעים כדי לא לחתוך כיתובים בתפר
@@ -190,7 +192,9 @@ def _image_block(png_bytes: bytes) -> dict:
     }
 
 
-def _pdf_to_content_blocks(data: bytes) -> tuple[list, int]:
+def _pdf_to_content_blocks(
+    data: bytes, file_label: str, max_pages: int
+) -> tuple[list, int]:
     """מרנדר את עמודי ה-PDF לתמונה כללית + רבעים מוגדלים, ומצרף את שכבת
     הטקסט אם קיימת. גיליונות CAD גדולים אינם קריאים כתמונה אחת."""
     import fitz  # pymupdf
@@ -199,13 +203,16 @@ def _pdf_to_content_blocks(data: bytes) -> tuple[list, int]:
     blocks: list = []
     page_count = len(pdf)
 
-    for page_index in range(min(page_count, MAX_EXTRACT_PAGES)):
+    for page_index in range(min(page_count, max_pages)):
         page = pdf[page_index]
         rect = page.rect
         long_edge = max(rect.width, rect.height)
 
         blocks.append(
-            {"type": "text", "text": f"עמוד {page_index + 1} — תמונה כללית:"}
+            {
+                "type": "text",
+                "text": f"{file_label}, עמוד {page_index + 1} — תמונה כללית:",
+            }
         )
         overview_scale = IMAGE_MAX_EDGE / long_edge
         pix = page.get_pixmap(matrix=fitz.Matrix(overview_scale, overview_scale))
@@ -230,7 +237,7 @@ def _pdf_to_content_blocks(data: bytes) -> tuple[list, int]:
                 blocks.append(
                     {
                         "type": "text",
-                        "text": f"עמוד {page_index + 1} — הגדלה, "
+                        "text": f"{file_label}, עמוד {page_index + 1} — הגדלה, "
                         f"{_TILE_NAMES[(row, col)]}:",
                     }
                 )
@@ -241,7 +248,7 @@ def _pdf_to_content_blocks(data: bytes) -> tuple[list, int]:
             blocks.append(
                 {
                     "type": "text",
-                    "text": f"שכבת הטקסט של עמוד {page_index + 1} "
+                    "text": f"שכבת הטקסט של {file_label}, עמוד {page_index + 1} "
                     f"(כפי שחולצה מה-PDF):\n{text[:20000]}",
                 }
             )
@@ -255,14 +262,35 @@ def health() -> dict:
 
 
 @app.post("/extract-pdf")
-async def extract_pdf(file: UploadFile) -> dict:
-    data = await file.read()
-    if not data:
-        raise HTTPException(status_code=400, detail="קובץ ריק")
-    if len(data) > MAX_PDF_BYTES:
-        raise HTTPException(status_code=413, detail="קובץ גדול מדי (מעל 32MB)")
-    if not data.startswith(b"%PDF"):
-        raise HTTPException(status_code=400, detail="הקובץ אינו PDF תקין")
+async def extract_pdf(
+    files: list[UploadFile] = File(default=[]),
+    file: UploadFile | None = File(default=None),
+):
+    """חילוץ כמויות ממספר קובצי תוכנית (תוכנית קומה + תוכניות חתך וכו').
+    השדה file נשמר לתאימות לאחור עם קליינטים ששולחים קובץ בודד."""
+    uploads = list(files)
+    if file is not None:
+        uploads.append(file)
+    if not uploads:
+        raise HTTPException(status_code=400, detail="לא צורף קובץ")
+
+    documents: list[tuple[str, bytes]] = []
+    total_bytes = 0
+    for upload in uploads:
+        data = await upload.read()
+        if not data:
+            raise HTTPException(status_code=400, detail="קובץ ריק")
+        if not data.startswith(b"%PDF"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"הקובץ {upload.filename or ''} אינו PDF תקין",
+            )
+        total_bytes += len(data)
+        documents.append((upload.filename or f"קובץ {len(documents) + 1}", data))
+    if total_bytes > MAX_PDF_BYTES:
+        raise HTTPException(
+            status_code=413, detail="הקבצים גדולים מדי (מעל 32MB יחד)"
+        )
 
     try:
         client = anthropic.Anthropic()
@@ -272,18 +300,33 @@ async def extract_pdf(file: UploadFile) -> dict:
             detail="מפתח ה-API של Claude לא מוגדר בשרת (ANTHROPIC_API_KEY)",
         ) from exc
 
-    try:
-        content_blocks, page_count = _pdf_to_content_blocks(data)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=400, detail="עיבוד ה-PDF נכשל — ודא שהקובץ תקין"
-        ) from exc
-    if page_count > MAX_EXTRACT_PAGES:
+    content_blocks: list = []
+    pages_budget = MAX_EXTRACT_PAGES
+    skipped_pages = 0
+    for index, (name, data) in enumerate(documents):
+        label = f'קובץ {index + 1} ("{name}")'
+        if pages_budget <= 0:
+            skipped_pages += 1
+            continue
+        try:
+            file_blocks, page_count = _pdf_to_content_blocks(
+                data, label, pages_budget
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"עיבוד הקובץ {name} נכשל — ודא שהקובץ תקין",
+            ) from exc
+        content_blocks.extend(file_blocks)
+        rendered = min(page_count, pages_budget)
+        skipped_pages += page_count - rendered
+        pages_budget -= rendered
+    if skipped_pages > 0:
         content_blocks.append(
             {
                 "type": "text",
-                "text": f"שים לב: לקובץ {page_count} עמודים אך נשלחו רק "
-                f"{MAX_EXTRACT_PAGES} הראשונים — ציין זאת ב-notes.",
+                "text": f"שים לב: {skipped_pages} עמודים לא נשלחו בגלל מגבלת "
+                f"עמודים ({MAX_EXTRACT_PAGES}) — ציין זאת ב-notes.",
             }
         )
     content_blocks.append({"type": "text", "text": EXTRACTION_PROMPT})

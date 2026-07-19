@@ -16,7 +16,7 @@ import {
 } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Order } from '../../src/types';
+import { Order, orderPlanFiles } from '../../src/types';
 import { getOrder } from '../../src/storage/orderRepo';
 import { orderToText } from '../../src/share/orderText';
 import { orderToHtml } from '../../src/share/orderHtml';
@@ -62,13 +62,12 @@ export default function OrderDetailScreen() {
     await printHtmlAsPdf(orderToHtml(order), order.title || strings.docTitle);
   };
 
-  const openPlan = () => {
-    if (!order?.planFileUri) return;
+  const openPlan = (uri: string) => {
     if (Platform.OS === 'web') {
-      window.open(order.planFileUri, '_blank');
+      window.open(uri, '_blank');
       return;
     }
-    router.push(`/plan-viewer?uri=${encodeURIComponent(order.planFileUri)}`);
+    router.push(`/plan-viewer?uri=${encodeURIComponent(uri)}`);
   };
 
   if (!order) {
@@ -81,6 +80,8 @@ export default function OrderDetailScreen() {
   }
 
   const totalSheets = order.lines.reduce((s, l) => s + l.quantity, 0);
+  const totalBars = (order.barLines ?? []).reduce((s, l) => s + l.quantity, 0);
+  const totalColumns = (order.columns ?? []).reduce((s, c) => s + c.count, 0);
 
   return (
     <View style={styles.flex}>
@@ -175,19 +176,32 @@ export default function OrderDetailScreen() {
           <Text style={styles.totalsText}>
             {strings.grandTotalSheets}: {totalSheets}
           </Text>
+          {totalBars > 0 && (
+            <Text style={styles.totalsText}>
+              {strings.grandTotalBars}: {totalBars}
+            </Text>
+          )}
+          {totalColumns > 0 && (
+            <Text style={styles.totalsText}>
+              {strings.grandTotalColumns}: {totalColumns}
+            </Text>
+          )}
           <Text style={styles.totalsText}>
             {strings.grandTotalWeight}: {order.totalWeightKg.toFixed(0)} ק"ג
           </Text>
         </View>
 
-        {order.planFileUri && (
-          <Pressable style={styles.planBtn} onPress={openPlan}>
+        {orderPlanFiles(order).map((f, i) => (
+          <Pressable
+            key={`${f.uri}-${i}`}
+            style={styles.planBtn}
+            onPress={() => openPlan(f.uri)}
+          >
             <Text style={styles.planBtnText}>
-              {strings.viewPlan}
-              {order.planFileName ? ` — ${order.planFileName}` : ''}
+              {strings.viewPlan} — {f.name}
             </Text>
           </Pressable>
-        )}
+        ))}
 
         <Text style={styles.sectionTitle}>{strings.areasBreakdown}</Text>
         {order.areas.map((area) => {

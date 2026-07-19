@@ -54,7 +54,13 @@ export function orderToText(order: Order): string {
 
   lines.push('');
   const totalSheets = order.lines.reduce((s, l) => s + l.quantity, 0);
+  const totalBars = (order.barLines ?? []).reduce((s, l) => s + l.quantity, 0);
+  const totalColumns = (order.columns ?? []).reduce((s, c) => s + c.count, 0);
   lines.push(`${strings.grandTotalSheets}: ${totalSheets}`);
+  if (totalBars > 0) lines.push(`${strings.grandTotalBars}: ${totalBars}`);
+  if (totalColumns > 0) {
+    lines.push(`${strings.grandTotalColumns}: ${totalColumns}`);
+  }
   lines.push(`${strings.grandTotalWeight}: ${order.totalWeightKg.toFixed(0)} ק"ג`);
 
   if (order.areas.length > 0) {

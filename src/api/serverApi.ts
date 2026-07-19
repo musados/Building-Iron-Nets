@@ -169,10 +169,28 @@ export interface StreamingExtraction {
  * החשיבה של המודל בזמן אמת) ולבסוף result או error. משתמשים ב-XHR כי
  * fetch ב-React Native לא תומך בקריאת גוף תגובה מדורגת.
  */
+async function buildMultiForm(
+  files: { uri: string; name: string }[]
+): Promise<FormData> {
+  const form = new FormData();
+  for (const f of files) {
+    if (Platform.OS === 'web') {
+      const blob = await (await fetch(f.uri)).blob();
+      form.append('files', new File([blob], f.name, { type: 'application/pdf' }));
+    } else {
+      form.append('files', {
+        uri: f.uri,
+        name: f.name,
+        type: 'application/pdf',
+      } as unknown as Blob);
+    }
+  }
+  return form;
+}
+
 export function extractFromPdf(
   serverUrl: string,
-  fileUri: string,
-  fileName: string,
+  files: { uri: string; name: string }[],
   onProgress: (text: string) => void
 ): StreamingExtraction {
   const xhr = new XMLHttpRequest();
@@ -226,7 +244,7 @@ export function extractFromPdf(
       }
     };
 
-    buildForm(fileUri, fileName, 'application/pdf')
+    buildMultiForm(files)
       .then((form) => xhr.send(form))
       .catch(reject);
   });

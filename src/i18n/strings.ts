@@ -37,6 +37,19 @@ export const strings = {
   invalidInput: 'יש למלא מידות תקינות בכל השטחים',
   liveSummary: (sheets: number, weightKg: number) =>
     `סה"כ: ${sheets} רשתות · ${weightKg.toFixed(0)} ק"ג`,
+  liveSummaryPlan: (
+    sheets: number,
+    bars: number,
+    columns: number,
+    weightKg: number
+  ) => {
+    const parts: string[] = [];
+    if (sheets > 0) parts.push(`${sheets} רשתות`);
+    if (bars > 0) parts.push(`${bars} מוטות`);
+    if (columns > 0) parts.push(`${columns} עמודים`);
+    parts.push(`${weightKg.toFixed(0)} ק"ג`);
+    return `סה"כ: ${parts.join(' · ')}`;
+  },
 
   // Detail screen
   detailTitle: 'פירוט הזמנה',
@@ -47,6 +60,8 @@ export const strings = {
   totalWeight: 'משקל כולל',
   grandTotalWeight: 'סה"כ משקל',
   grandTotalSheets: 'סה"כ רשתות',
+  grandTotalBars: 'סה"כ מוטות בודדים',
+  grandTotalColumns: 'סה"כ עמודים',
   overlap: 'חפייה',
   orientationRotated: 'מסובב',
   orientationAsIs: 'רגיל',
@@ -67,12 +82,13 @@ export const strings = {
   planOrder: 'הזמנה לפי תוכנית',
   planOrderDesc: 'תוכנית PDF + רשתות, מוטות ועמודים',
   planOrderTitle: 'הזמנה לפי תוכנית',
-  planSectionTitle: 'קובץ תוכנית',
+  planSectionTitle: 'קובצי תוכנית',
   attachPlan: 'צרף תוכנית (PDF / DWG / DXF)',
   replacePlan: 'החלף תוכנית',
   viewPlan: 'צפה בתוכנית',
   planViewerTitle: 'תוכנית',
-  dwgNote: 'קובצי DWG ו-DXF מומרים אוטומטית ל-PDF דרך השרת',
+  dwgNote:
+    'אפשר לצרף כמה קבצים — תוכנית קומה, תוכניות חתך לעמודים ועוד. קובצי DWG/DXF מומרים אוטומטית ל-PDF דרך השרת',
   unsupportedPlanType: 'סוג קובץ לא נתמך — יש לצרף PDF, DWG או DXF',
   convertNeedsServer: 'המרת DWG/DXF דורשת כתובת שרת — הזן אותה בהמשך המסך',
   convertFailed: 'המרת הקובץ נכשלה',

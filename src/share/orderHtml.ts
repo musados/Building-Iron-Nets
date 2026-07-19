@@ -15,6 +15,8 @@ function esc(s: string): string {
 
 export function orderToHtml(order: Order): string {
   const totalSheets = order.lines.reduce((s, l) => s + l.quantity, 0);
+  const totalBars = (order.barLines ?? []).reduce((s, l) => s + l.quantity, 0);
+  const totalColumns = (order.columns ?? []).reduce((s, c) => s + c.count, 0);
 
   const lineRows = order.lines
     .map((line) => {
@@ -152,6 +154,8 @@ export function orderToHtml(order: Order): string {
 
   <div class="totals">
     ${esc(strings.grandTotalSheets)}: ${totalSheets} ·
+    ${totalBars > 0 ? `${esc(strings.grandTotalBars)}: ${totalBars} · ` : ''}
+    ${totalColumns > 0 ? `${esc(strings.grandTotalColumns)}: ${totalColumns} · ` : ''}
     ${esc(strings.grandTotalWeight)}: ${order.totalWeightKg.toFixed(0)} ק"ג
   </div>
   ${order.notes ? `<div class="notes">${esc(order.notes)}</div>` : ''}

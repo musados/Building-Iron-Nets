@@ -109,9 +109,31 @@ export interface Order {
   barLines?: BarLine[];
   columns?: ColumnItem[];
   columnResults?: ColumnResult[];
+  /** @deprecated נשמר לתאימות — השתמש ב-planFiles */
   planFileName?: string;
+  /** @deprecated נשמר לתאימות — השתמש ב-planFiles */
   planFileUri?: string;
+  planFiles?: PlanFile[];
   aiExtraction?: AiExtractionReport;
+}
+
+/** קובץ תוכנית מצורף (תוכנית קומה, חתך וכו') — תמיד PDF אחרי המרה */
+export interface PlanFile {
+  uri: string;
+  name: string;
+}
+
+/** רשימת קובצי התוכנית של הזמנה, כולל תאימות לשדה הבודד הישן */
+export function orderPlanFiles(order: {
+  planFiles?: PlanFile[];
+  planFileUri?: string;
+  planFileName?: string;
+}): PlanFile[] {
+  if (order.planFiles && order.planFiles.length > 0) return order.planFiles;
+  if (order.planFileUri) {
+    return [{ uri: order.planFileUri, name: order.planFileName ?? 'plan.pdf' }];
+  }
+  return [];
 }
 
 export interface OrderSummary {

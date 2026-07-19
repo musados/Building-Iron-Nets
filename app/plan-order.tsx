@@ -20,6 +20,8 @@ import {
   ColumnItem,
   MeshSpec,
   Order,
+  orderPlanFiles,
+  PlanFile,
   RectArea,
 } from '../src/types';
 import { DEFAULT_MESH, DEFAULT_OVERLAP_CM } from '../src/constants';
@@ -185,8 +187,7 @@ export default function PlanOrderScreen() {
   const [areaDrafts, setAreaDrafts] = useState<AreaDraft[]>([]);
   const [barDrafts, setBarDrafts] = useState<BarDraft[]>([]);
   const [columnDrafts, setColumnDrafts] = useState<ColumnDraft[]>([]);
-  const [planFileUri, setPlanFileUri] = useState<string | null>(null);
-  const [planFileName, setPlanFileName] = useState<string | null>(null);
+  const [planFiles, setPlanFiles] = useState<PlanFile[]>([]);
   const [serverUrl, setServerUrlState] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [converting, setConverting] = useState(false);
@@ -207,8 +208,7 @@ export default function PlanOrderScreen() {
       setTitle(order.title);
       setOverlap(String(order.overlapCm));
       setExistingCreatedAt(order.createdAt);
-      setPlanFileUri(order.planFileUri ?? null);
-      setPlanFileName(order.planFileName ?? null);
+      setPlanFiles(orderPlanFiles(order));
       setAiReport(order.aiExtraction ?? null);
       const firstMesh = order.areas[0]?.mesh ?? DEFAULT_MESH;
       setMesh(firstMesh);
@@ -279,6 +279,8 @@ export default function PlanOrderScreen() {
         meshComp,
         extras,
         totalSheets,
+        totalBars: extras.barLines.reduce((s, l) => s + l.quantity, 0),
+        totalColumns: parsed.columns.reduce((s, c) => s + c.count, 0),
         totalWeightKg: meshComp.totalWeightKg + extras.totalWeightKg,
       };
     } catch (e) {
@@ -322,8 +324,7 @@ export default function PlanOrderScreen() {
           destUri = `${plansDir}${Crypto.randomUUID()}.pdf`;
         }
         const localUri = await convertCadToPdf(url, asset.uri, name, destUri);
-        setPlanFileUri(localUri);
-        setPlanFileName(pdfName);
+        setPlanFiles((prev) => [...prev, { uri: localUri, name: pdfName }]);
       } catch (e) {
         notify(
           strings.convertFailed,
@@ -336,8 +337,7 @@ export default function PlanOrderScreen() {
     }
 
     if (Platform.OS === 'web') {
-      setPlanFileUri(asset.uri);
-      setPlanFileName(name);
+      setPlanFiles((prev) => [...prev, { uri: asset.uri, name }]);
       return;
     }
     const plansDir = `${FileSystem.documentDirectory}plans/`;
@@ -346,17 +346,15 @@ export default function PlanOrderScreen() {
     );
     const dest = `${plansDir}${Crypto.randomUUID()}.pdf`;
     await FileSystem.copyAsync({ from: asset.uri, to: dest });
-    setPlanFileUri(dest);
-    setPlanFileName(name);
+    setPlanFiles((prev) => [...prev, { uri: dest, name }]);
   };
 
-  const openPlan = () => {
-    if (!planFileUri) return;
+  const openPlan = (uri: string) => {
     if (Platform.OS === 'web') {
-      window.open(planFileUri, '_blank');
+      window.open(uri, '_blank');
       return;
     }
-    router.push(`/plan-viewer?uri=${encodeURIComponent(planFileUri)}`);
+    router.push(`/plan-viewer?uri=${encodeURIComponent(uri)}`);
   };
 
   const applyExtraction = (extraction: ExtractionResult) => {
@@ -405,7 +403,7 @@ export default function PlanOrderScreen() {
   };
 
   const extract = async () => {
-    if (!planFileUri || !planFileName) {
+    if (planFiles.length === 0) {
       notify(strings.extractNeedsPlan);
       return;
     }
@@ -418,7 +416,7 @@ export default function PlanOrderScreen() {
     setExtracting(true);
     setExtractProgress('');
     try {
-      const streaming = extractFromPdf(url, planFileUri, planFileName, (text) =>
+      const streaming = extractFromPdf(url, planFiles, (text) =>
         setExtractProgress((prev) => prev + text)
       );
       cancelExtractRef.current = streaming.cancel;
@@ -469,8 +467,9 @@ export default function PlanOrderScreen() {
         barLines: extras.barLines,
         columns: parsed.columns,
         columnResults: extras.columnResults,
-        planFileName: planFileName ?? undefined,
-        planFileUri: planFileUri ?? undefined,
+        planFiles,
+        planFileName: planFiles[0]?.name,
+        planFileUri: planFiles[0]?.uri,
         aiExtraction: aiReport ?? undefined,
       };
       await saveOrder(order);
@@ -509,35 +508,42 @@ export default function PlanOrderScreen() {
 
         <Text style={styles.sectionTitle}>{strings.planSectionTitle}</Text>
         <Text style={styles.hint}>{strings.dwgNote}</Text>
-        <View style={styles.planRow}>
-          <Pressable
-            style={[styles.planBtn, converting && styles.saveDisabled]}
-            onPress={pickPlan}
-            disabled={converting}
-          >
-            {converting ? (
-              <View style={styles.extractingRow}>
-                <ActivityIndicator color="#fff" />
-                <Text style={styles.planBtnText}>{strings.convertingCad}</Text>
-              </View>
-            ) : (
-              <Text style={styles.planBtnText}>
-                {planFileUri ? strings.replacePlan : strings.attachPlan}
-              </Text>
-            )}
-          </Pressable>
-          {planFileUri && !converting && (
+        {planFiles.map((f, index) => (
+          <View key={`${f.uri}-${index}`} style={styles.planFileRow}>
             <Pressable
-              style={[styles.planBtn, styles.planBtnOutline]}
-              onPress={openPlan}
+              style={styles.planFileDelete}
+              hitSlop={8}
+              onPress={() =>
+                setPlanFiles((prev) => prev.filter((_, i) => i !== index))
+              }
             >
-              <Text style={[styles.planBtnText, styles.planBtnOutlineText]}>
-                {strings.viewPlan}
-              </Text>
+              <Text style={styles.planFileDeleteText}>✕</Text>
             </Pressable>
+            <Pressable
+              style={styles.planFileMain}
+              onPress={() => openPlan(f.uri)}
+            >
+              <Text style={styles.fileName} numberOfLines={1}>
+                {f.name}
+              </Text>
+              <Text style={styles.planFileView}>{strings.viewPlan}</Text>
+            </Pressable>
+          </View>
+        ))}
+        <Pressable
+          style={[styles.planBtn, converting && styles.saveDisabled]}
+          onPress={pickPlan}
+          disabled={converting}
+        >
+          {converting ? (
+            <View style={styles.extractingRow}>
+              <ActivityIndicator color="#fff" />
+              <Text style={styles.planBtnText}>{strings.convertingCad}</Text>
+            </View>
+          ) : (
+            <Text style={styles.planBtnText}>+ {strings.attachPlan}</Text>
           )}
-        </View>
-        {planFileName && <Text style={styles.fileName}>{planFileName}</Text>}
+        </Pressable>
 
         <Text style={styles.sectionTitle}>{strings.serverSectionTitle}</Text>
         <Text style={styles.label}>{strings.serverUrlLabel}</Text>
@@ -669,7 +675,12 @@ export default function PlanOrderScreen() {
             ? strings.invalidInput
             : 'error' in summary
               ? summary.error
-              : `${strings.liveSummary(summary.totalSheets, summary.totalWeightKg)}`}
+              : strings.liveSummaryPlan(
+                  summary.totalSheets,
+                  summary.totalBars,
+                  summary.totalColumns,
+                  summary.totalWeightKg
+                )}
         </Text>
         <Pressable
           style={[styles.saveButton, (summary === null || hasError) && styles.saveDisabled]}
@@ -754,6 +765,43 @@ const styles = StyleSheet.create({
   planRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  planFileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#faf8f5',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e0d8',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  planFileMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  planFileView: {
+    color: '#b45309',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  planFileDelete: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#f0e8dd',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planFileDeleteText: {
+    color: '#8a6d3b',
+    fontSize: 13,
+    fontWeight: '700',
   },
   planBtn: {
     flex: 1,
