@@ -18,6 +18,9 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# auth service — local dev signing key (in Docker it lives in the authdata volume)
+jwt-signing-key.pem
+
 # Metro
 .metro-health-check*
 

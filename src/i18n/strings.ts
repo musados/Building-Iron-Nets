@@ -178,6 +178,40 @@ export const strings = {
   aiReportPrint: 'הדפס PDF',
   close: 'סגור',
 
+  // Account / auth
+  accountTitle: 'חשבון',
+  signInTitle: 'התחברות',
+  signInHint:
+    'התחבר כדי לשמור את ההזמנות שלך בשרת ולגשת אליהן מכל מכשיר.',
+  signInWithGoogle: 'התחברות עם Google',
+  signInWithApple: 'התחברות עם Apple',
+  signInFailed: 'ההתחברות נכשלה',
+  googleNotConfigured:
+    'התחברות Google אינה מוגדרת — יש למלא client IDs ב-app.json (extra.googleAuth)',
+  authUrlLabel: 'כתובת שרת ההתחברות',
+  authUrlPlaceholder: 'http://192.168.1.10:8100',
+  authUrlHint:
+    'אם ריק — תשמש כתובת שרת העיבוד (בפרודקשן שניהם תחת אותו דומיין).',
+  signedInAs: 'מחובר בתור',
+  signOut: 'התנתקות',
+  syncNow: 'סנכרן הזמנות מהשרת',
+  syncPulled: (n: number) =>
+    n > 0 ? `נוספו ${n} הזמנות מהשרת` : 'אין הזמנות חדשות בשרת',
+  syncFailed: 'הסנכרון מול השרת נכשל',
+  savedLocallySyncFailed:
+    'ההזמנה נשמרה במכשיר, אך הסנכרון לשרת נכשל',
+
+  // Save-to-server choice
+  saveToServerTitle: 'שמירה בשרת',
+  saveToServerSubtitle: 'איך לשמור את ההזמנה בחשבון שלך?',
+  saveResultOnly: 'תוצאה בלבד',
+  saveResultOnlyDesc: 'ההזמנה והחישוב יישמרו בשרת, ללא קובצי התוכנית',
+  saveWithFiles: 'כולל קובצי התוכנית',
+  saveWithFilesDesc: 'קובצי ה-PDF יועלו ויישמרו בשרת יחד עם ההזמנה',
+  resultOnlyWarning:
+    'שים לב: קובצי התוכנית לא יישמרו בשרת עם ההזמנה — הם יישארו זמינים רק במכשיר הזה.',
+  save: 'שמור',
+
   // Shared document
   docTitle: 'הזמנת רשתות ברזל',
   meshLine: (l: number, w: number, d: number, s: number) =>

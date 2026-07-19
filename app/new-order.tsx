@@ -16,6 +16,8 @@ import { DEFAULT_MESH, DEFAULT_OVERLAP_CM } from '../src/constants';
 import { CalcError, computeOrder } from '../src/calc/mesh';
 import { Feather } from '@expo/vector-icons';
 import { getOrder, saveOrder } from '../src/storage/orderRepo';
+import { initSession, isSignedIn } from '../src/auth/session';
+import { pushOrderToServer } from '../src/sync/orderSync';
 import { confirmAction, notify } from '../src/ui/alerts';
 import { colors, spacing, type, typo } from '../src/ui/theme';
 import { strings } from '../src/i18n/strings';
@@ -168,6 +170,18 @@ export default function NewOrderScreen() {
         totalWeightKg: computation.totalWeightKg,
       };
       await saveOrder(order);
+      // הזמנה רגילה — ללא קבצי תוכנית; מסתנכרנת לשרת כשהמשתמש מחובר
+      await initSession();
+      if (isSignedIn()) {
+        try {
+          await pushOrderToServer(order, false);
+        } catch (e) {
+          notify(
+            strings.savedLocallySyncFailed,
+            e instanceof Error ? e.message : String(e)
+          );
+        }
+      }
       router.replace(`/order/${order.id}`);
     } catch (e) {
       if (e instanceof CalcError) {

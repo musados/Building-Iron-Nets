@@ -35,6 +35,8 @@ import {
   ExtractionResult,
 } from '../src/api/serverApi';
 import { confirmAction, notify } from '../src/ui/alerts';
+import { initSession, isSignedIn } from '../src/auth/session';
+import { pushOrderToServer } from '../src/sync/orderSync';
 import { colors, spacing, type, typo } from '../src/ui/theme';
 import { strings } from '../src/i18n/strings';
 import Button from '../src/components/ui/Button';
@@ -44,6 +46,7 @@ import IconTile from '../src/components/ui/IconTile';
 import MeshSpecPicker from '../src/components/MeshSpecPicker';
 import ExtractionReportModal from '../src/components/ExtractionReportModal';
 import ExtractionProgressModal from '../src/components/ExtractionProgressModal';
+import SaveChoiceModal from '../src/components/SaveChoiceModal';
 import RectRow, { AreaDraft } from '../src/components/RectRow';
 import BarRow, { BarDraft } from '../src/components/BarRow';
 import ColumnCard, { ColumnDraft } from '../src/components/ColumnCard';
@@ -226,6 +229,7 @@ export default function PlanOrderScreen() {
   const [existingCreatedAt, setExistingCreatedAt] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [showServer, setShowServer] = useState(false);
+  const [saveChoiceOpen, setSaveChoiceOpen] = useState(false);
 
   useEffect(() => {
     getServerUrl().then(setServerUrlState);
@@ -490,6 +494,22 @@ export default function PlanOrderScreen() {
       notify(strings.invalidInput);
       return;
     }
+    await initSession();
+    // למשתמש מחובר עם קבצי תוכנית — בחירה אם להעלות אותם לשרת.
+    // ברירת המחדל: תוצאה בלבד, עם אזהרה שהקבצים יישארו רק במכשיר.
+    if (isSignedIn() && planFiles.length > 0) {
+      setSaveChoiceOpen(true);
+      return;
+    }
+    await performSave(false);
+  };
+
+  const performSave = async (withFiles: boolean) => {
+    setSaveChoiceOpen(false);
+    if (!parsed) {
+      notify(strings.invalidInput);
+      return;
+    }
     try {
       const meshComp = computeOrder(parsed.areas, parsed.overlapCm);
       const extras = computePlanExtras(parsed.bars, parsed.columns);
@@ -513,6 +533,16 @@ export default function PlanOrderScreen() {
         aiExtraction: aiReport ?? undefined,
       };
       await saveOrder(order);
+      if (isSignedIn()) {
+        try {
+          await pushOrderToServer(order, withFiles);
+        } catch (e) {
+          notify(
+            strings.savedLocallySyncFailed,
+            e instanceof Error ? e.message : String(e)
+          );
+        }
+      }
       router.replace(`/order/${order.id}`);
     } catch (e) {
       if (e instanceof CalcError) {
@@ -1014,6 +1044,12 @@ export default function PlanOrderScreen() {
         visible={extracting}
         progressText={extractProgress}
         onCancel={() => cancelExtractRef.current?.()}
+      />
+
+      <SaveChoiceModal
+        visible={saveChoiceOpen}
+        onClose={() => setSaveChoiceOpen(false)}
+        onSave={performSave}
       />
     </KeyboardAvoidingView>
   );

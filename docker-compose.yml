@@ -1,4 +1,4 @@
-# IronNets — server + web, plain HTTP behind your production Caddy.
+# IronNets — server + auth + web + postgres, plain HTTP behind your production Caddy.
 # See DEPLOY.md for the production Caddyfile example.
 services:
   server:
@@ -8,6 +8,49 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      CONTENT_DATABASE_URL: postgresql://ironnets_content:${CONTENT_DB_PASSWORD:-changeme-content}@postgres:5432/ironnets
+      AUTH_JWKS_URL: http://auth:8100/.well-known/jwks.json
+      PLAN_FILES_DIR: /data/plan-files
+    volumes:
+      - planfiles:/data/plan-files
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  auth:
+    build: ./auth-server
+    ports:
+      - "8100:8100"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      AUTH_DATABASE_URL: postgresql://ironnets_auth:${AUTH_DB_PASSWORD:-changeme-auth}@postgres:5432/ironnets
+      AUTH_JWT_KEY_FILE: /data/jwt-signing-key.pem
+    volumes:
+      - authdata:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ironnets
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-changeme-postgres}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-changeme-auth}
+      CONTENT_DB_PASSWORD: ${CONTENT_DB_PASSWORD:-changeme-content}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ironnets"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
   web:
@@ -17,3 +60,8 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
+
+volumes:
+  pgdata:
+  authdata:
+  planfiles:

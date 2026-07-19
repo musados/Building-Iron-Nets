@@ -31,6 +31,8 @@ from fastapi.responses import Response, StreamingResponse
 load_dotenv(Path(__file__).parent / ".env")
 load_dotenv(Path(__file__).parent.parent / ".env")
 
+from orders import router as orders_router
+
 app = FastAPI(title="IronNets Server")
 
 app.add_middleware(
@@ -39,6 +41,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# הזמנות של משתמשים מחוברים (דורש Postgres + שירות auth — ראה DEPLOY.md)
+app.include_router(orders_router)
 
 MAX_PDF_BYTES = 32 * 1024 * 1024  # Claude API request limit
 

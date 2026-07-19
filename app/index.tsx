@@ -14,6 +14,11 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { OrderSummary } from '../src/types';
 import { deleteOrder, listOrders } from '../src/storage/orderRepo';
+import { isSignedIn } from '../src/auth/session';
+import {
+  deleteOrderOnServer,
+  pullOrdersFromServer,
+} from '../src/sync/orderSync';
 import { confirmAction } from '../src/ui/alerts';
 import { colors, hit, radius, shadow, spacing, type, typo } from '../src/ui/theme';
 import Button from '../src/components/ui/Button';
@@ -46,6 +51,12 @@ export default function HistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       listOrders().then(setOrders);
+      // משיכת הזמנות מהשרת ברקע (רק כשמחוברים); כשל רשת לא מפריע למסך
+      pullOrdersFromServer()
+        .then((added) => {
+          if (added > 0) listOrders().then(setOrders);
+        })
+        .catch(() => undefined);
     }, [])
   );
 
@@ -66,6 +77,7 @@ export default function HistoryScreen() {
       strings.delete,
       async () => {
         await deleteOrder(id);
+        deleteOrderOnServer(id);
         setOrders(await listOrders());
       },
       true
@@ -92,6 +104,18 @@ export default function HistoryScreen() {
               </Text>
             </View>
           )}
+          <View style={styles.titleSpacer} />
+          <Pressable
+            hitSlop={8}
+            style={styles.accountBtn}
+            onPress={() => router.push('/sign-in')}
+          >
+            <Feather
+              name={isSignedIn() ? 'user-check' : 'user'}
+              size={20}
+              color={isSignedIn() ? colors.primary : colors.textSecondary}
+            />
+          </Pressable>
         </View>
 
         <View style={styles.searchBox}>
@@ -257,6 +281,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 3,
+  },
+  titleSpacer: {
+    flex: 1,
+  },
+  accountBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.fillSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchBox: {
     flexDirection: 'row',
