@@ -98,11 +98,13 @@ export default function RectRow({
       {!draft.inherit && draft.mesh && (
         <View style={styles.ownSpec}>
           <Text style={styles.groupLabel}>{strings.overlapLabel}</Text>
-          <NumberField
-            value={draft.overlap}
-            onChangeText={(overlap) => onChange({ ...draft, overlap })}
-            style={styles.overlapField}
-          />
+          <View style={styles.overlapRow}>
+            <NumberField
+              value={draft.overlap}
+              onChangeText={(overlap) => onChange({ ...draft, overlap })}
+            />
+            <View style={styles.overlapSpacer} />
+          </View>
           <MeshSpecPicker
             value={draft.mesh}
             onChange={(mesh) => onChange({ ...draft, mesh })}
@@ -178,9 +180,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     textAlign: 'right',
   },
-  overlapField: {
-    maxWidth: 120,
-    alignSelf: 'flex-start',
-    flex: 0,
+  overlapRow: {
+    flexDirection: 'row',
+  },
+  overlapSpacer: {
+    flex: 2,
   },
 });
