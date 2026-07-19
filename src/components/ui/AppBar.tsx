@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { colors, radius, spacing, typo } from '../../ui/theme';
@@ -14,9 +14,10 @@ export default function AppBar() {
           onPress={() => router.replace('/')}
           hitSlop={8}
         >
-          <View style={styles.brandTile}>
-            <Feather name="grid" size={18} color={colors.primary} />
-          </View>
+          <Image
+            source={require('../../../assets/icon.png')}
+            style={styles.brandTile}
+          />
           <Text style={[typo({ fontSize: 18, fontWeight: '800' }), { color: colors.text }]}>
             IronNets
           </Text>
@@ -62,9 +63,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: radius.tile,
-    backgroundColor: colors.primaryTint,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   homeLink: {
     flexDirection: 'row',
