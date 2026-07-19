@@ -14,8 +14,9 @@ import * as Crypto from 'expo-crypto';
 import { MeshSpec, Order, RectArea } from '../src/types';
 import { DEFAULT_MESH, DEFAULT_OVERLAP_CM } from '../src/constants';
 import { CalcError, computeOrder } from '../src/calc/mesh';
+import { Feather } from '@expo/vector-icons';
 import { getOrder, saveOrder } from '../src/storage/orderRepo';
-import { notify } from '../src/ui/alerts';
+import { confirmAction, notify } from '../src/ui/alerts';
 import { colors, spacing, type, typo } from '../src/ui/theme';
 import { strings } from '../src/i18n/strings';
 import Button from '../src/components/ui/Button';
@@ -186,7 +187,25 @@ export default function NewOrderScreen() {
       keyboardVerticalOffset={90}
     >
       <Stack.Screen
-        options={{ title: id ? strings.editorTitleEdit : strings.editorTitle }}
+        options={{
+          title: id ? strings.editorTitleEdit : strings.editorTitle,
+          headerRight: () => (
+            <Pressable
+              onPress={() =>
+                confirmAction(
+                  strings.closeOrderTitle,
+                  strings.closeOrderConfirm,
+                  strings.close,
+                  () => router.replace('/'),
+                  true
+                )
+              }
+              hitSlop={10}
+            >
+              <Feather name="x" size={22} color={colors.text} />
+            </Pressable>
+          ),
+        }}
       />
       <ScrollView
         style={styles.flex}

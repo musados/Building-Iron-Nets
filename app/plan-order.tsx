@@ -895,7 +895,27 @@ export default function PlanOrderScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
-      <Stack.Screen options={{ title: strings.planOrderTitle }} />
+      <Stack.Screen
+        options={{
+          title: strings.planOrderTitle,
+          headerRight: () => (
+            <Pressable
+              onPress={() =>
+                confirmAction(
+                  strings.closeOrderTitle,
+                  strings.closeOrderConfirm,
+                  strings.close,
+                  () => router.replace('/'),
+                  true
+                )
+              }
+              hitSlop={10}
+            >
+              <Feather name="x" size={22} color={colors.text} />
+            </Pressable>
+          ),
+        }}
+      />
 
       <View style={styles.stepIndicator}>
         {stepLabels.map((label, i) => {

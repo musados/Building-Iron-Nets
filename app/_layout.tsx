@@ -10,6 +10,7 @@ import {
   Heebo_800ExtraBold,
 } from '@expo-google-fonts/heebo';
 import { colors } from '../src/ui/theme';
+import AppBar from '../src/components/ui/AppBar';
 
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
@@ -35,18 +36,21 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: { backgroundColor: pageBg },
-        headerShadowVisible: false,
-        headerTintColor: colors.text,
-        headerTitleStyle: {
-          fontFamily: 'Heebo_800ExtraBold',
-          fontSize: 18,
-          color: colors.text,
-        },
-        contentStyle: { backgroundColor: pageBg },
-      }}
-    />
+    <View style={{ flex: 1 }}>
+      {Platform.OS === 'web' && <AppBar />}
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: pageBg },
+          headerShadowVisible: false,
+          headerTintColor: colors.text,
+          headerTitleStyle: {
+            fontFamily: 'Heebo_800ExtraBold',
+            fontSize: 18,
+            color: colors.text,
+          },
+          contentStyle: { backgroundColor: pageBg },
+        }}
+      />
+    </View>
   );
 }

@@ -135,6 +135,8 @@ export const strings = {
   cutLength: 'אורך חיתוך',
 
   // Plan wizard
+  closeOrderTitle: 'לסגור את ההזמנה?',
+  closeOrderConfirm: 'שינויים שלא נשמרו יאבדו.',
   stepPlan: '1 · תוכנית',
   stepQuantities: '2 · כמויות',
   stepSummary: '3 · סיכום',
