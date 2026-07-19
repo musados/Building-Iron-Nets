@@ -12,6 +12,10 @@ export interface AreaDraft {
   diameter: string;
   /** override של מרווח העיניים לשטח זה; ריק = ירושה מהמפרט הכללי */
   spacing: string;
+  /** override של אורך הפלטה לשטח זה; ריק = ירושה מהמפרט הכללי */
+  sheetLength: string;
+  /** override של רוחב הפלטה לשטח זה; ריק = ירושה מהמפרט הכללי */
+  sheetWidth: string;
 }
 
 interface Props {
@@ -21,6 +25,8 @@ interface Props {
   canDelete: boolean;
   defaultDiameterMm: number;
   defaultSpacingCm: number;
+  defaultSheetLengthM: number;
+  defaultSheetWidthM: number;
 }
 
 export default function RectRow({
@@ -30,6 +36,8 @@ export default function RectRow({
   canDelete,
   defaultDiameterMm,
   defaultSpacingCm,
+  defaultSheetLengthM,
+  defaultSheetWidthM,
 }: Props) {
   return (
     <View style={styles.card}>
@@ -71,6 +79,20 @@ export default function RectRow({
           value={draft.spacing}
           onChangeText={(spacing) => onChange({ ...draft, spacing })}
           placeholder={String(defaultSpacingCm)}
+        />
+      </View>
+      <View style={styles.dimsRow}>
+        <NumberField
+          label={strings.areaSheetLengthLabel}
+          value={draft.sheetLength}
+          onChangeText={(sheetLength) => onChange({ ...draft, sheetLength })}
+          placeholder={String(defaultSheetLengthM)}
+        />
+        <NumberField
+          label={strings.areaSheetWidthLabel}
+          value={draft.sheetWidth}
+          onChangeText={(sheetWidth) => onChange({ ...draft, sheetWidth })}
+          placeholder={String(defaultSheetWidthM)}
         />
       </View>
     </View>

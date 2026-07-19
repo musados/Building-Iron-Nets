@@ -71,7 +71,8 @@ export function orderToText(order: Order): string {
       if (!result) continue;
       lines.push(
         `• ${area.name}: ${area.lengthM}×${area.widthM} מ' · ` +
-          `רשת Ø${area.mesh.wireDiameterMm}@${area.mesh.spacingCm} → ` +
+          `רשת ${area.mesh.sheetWidthM}×${area.mesh.sheetLengthM} ` +
+          `Ø${area.mesh.wireDiameterMm}@${area.mesh.spacingCm} → ` +
           `${result.sheetCount} רשתות (${result.countAlongLength}×${result.countAlongWidth})`
       );
     }

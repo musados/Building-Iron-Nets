@@ -213,7 +213,8 @@ export default function OrderDetailScreen() {
                 {area.name}: {area.lengthM}×{area.widthM} מ'
               </Text>
               <Text style={styles.cardMeta}>
-                רשת Ø{area.mesh.wireDiameterMm} @ {area.mesh.spacingCm}/
+                רשת {area.mesh.sheetWidthM}×{area.mesh.sheetLengthM} מ' Ø
+                {area.mesh.wireDiameterMm} @ {area.mesh.spacingCm}/
                 {area.mesh.spacingCm} · {r.sheetCount} רשתות ·{' '}
                 {strings.layout}: {r.countAlongLength}×
                 {r.countAlongWidth} (

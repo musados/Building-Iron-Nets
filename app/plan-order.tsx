@@ -52,6 +52,8 @@ function newAreaDraft(index: number): AreaDraft {
     width: '',
     diameter: '',
     spacing: '',
+    sheetLength: '',
+    sheetWidth: '',
   };
 }
 
@@ -114,13 +116,21 @@ function areasFromDrafts(drafts: AreaDraft[], mesh: MeshSpec): RectArea[] | null
     const spacingCm = d.spacing.trim()
       ? parsePositive(d.spacing)
       : mesh.spacingCm;
-    if (!wireDiameterMm || !spacingCm) return null;
+    const sheetLengthM = d.sheetLength.trim()
+      ? parsePositive(d.sheetLength)
+      : mesh.sheetLengthM;
+    const sheetWidthM = d.sheetWidth.trim()
+      ? parsePositive(d.sheetWidth)
+      : mesh.sheetWidthM;
+    if (!wireDiameterMm || !spacingCm || !sheetLengthM || !sheetWidthM) {
+      return null;
+    }
     areas.push({
       id: d.id,
       name: d.name.trim() || strings.areaDefaultName,
       lengthM,
       widthM,
-      mesh: { ...mesh, wireDiameterMm, spacingCm },
+      mesh: { ...mesh, wireDiameterMm, spacingCm, sheetLengthM, sheetWidthM },
     });
   }
   return areas;
@@ -229,6 +239,14 @@ export default function PlanOrderScreen() {
           spacing:
             a.mesh.spacingCm !== firstMesh.spacingCm
               ? String(a.mesh.spacingCm)
+              : '',
+          sheetLength:
+            a.mesh.sheetLengthM !== firstMesh.sheetLengthM
+              ? String(a.mesh.sheetLengthM)
+              : '',
+          sheetWidth:
+            a.mesh.sheetWidthM !== firstMesh.sheetWidthM
+              ? String(a.mesh.sheetWidthM)
               : '',
         }))
       );
@@ -368,6 +386,8 @@ export default function PlanOrderScreen() {
           width: String(m.widthM),
           diameter: m.wireDiameterMm > 0 ? String(m.wireDiameterMm) : '',
           spacing: m.spacingCm > 0 ? String(m.spacingCm) : '',
+          sheetLength: '',
+          sheetWidth: '',
         })),
       ]);
     }
@@ -606,6 +626,8 @@ export default function PlanOrderScreen() {
             canDelete
             defaultDiameterMm={mesh.wireDiameterMm}
             defaultSpacingCm={mesh.spacingCm}
+            defaultSheetLengthM={mesh.sheetLengthM}
+            defaultSheetWidthM={mesh.sheetWidthM}
           />
         ))}
         <Pressable

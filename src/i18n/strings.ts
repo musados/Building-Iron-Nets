@@ -33,6 +33,8 @@ export const strings = {
   widthLabel: 'רוחב (מ\')',
   areaDiameterLabel: 'קוטר רשת (מ"מ)',
   areaSpacingLabel: 'מרווח (ס"מ)',
+  areaSheetLengthLabel: 'אורך פלטה (מ\')',
+  areaSheetWidthLabel: 'רוחב פלטה (מ\')',
   saveAndShow: 'שמור והצג',
   invalidInput: 'יש למלא מידות תקינות בכל השטחים',
   liveSummary: (sheets: number, weightKg: number) =>

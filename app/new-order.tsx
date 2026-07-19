@@ -29,6 +29,8 @@ function newDraft(index: number): AreaDraft {
     width: '',
     diameter: '',
     spacing: '',
+    sheetLength: '',
+    sheetWidth: '',
   };
 }
 
@@ -48,11 +50,21 @@ function draftsToAreas(
     const spacingCm = d.spacing.trim()
       ? parseNumber(d.spacing)
       : mesh.spacingCm;
+    const sheetLengthM = d.sheetLength.trim()
+      ? parseNumber(d.sheetLength)
+      : mesh.sheetLengthM;
+    const sheetWidthM = d.sheetWidth.trim()
+      ? parseNumber(d.sheetWidth)
+      : mesh.sheetWidthM;
     if (
       !wireDiameterMm ||
       !spacingCm ||
+      !sheetLengthM ||
+      !sheetWidthM ||
       wireDiameterMm <= 0 ||
-      spacingCm <= 0
+      spacingCm <= 0 ||
+      sheetLengthM <= 0 ||
+      sheetWidthM <= 0
     ) {
       return null;
     }
@@ -61,7 +73,7 @@ function draftsToAreas(
       name: d.name.trim() || strings.areaDefaultName,
       lengthM,
       widthM,
-      mesh: { ...mesh, wireDiameterMm, spacingCm },
+      mesh: { ...mesh, wireDiameterMm, spacingCm, sheetLengthM, sheetWidthM },
     });
   }
   return areas;
@@ -107,6 +119,14 @@ export default function NewOrderScreen() {
           spacing:
             a.mesh.spacingCm !== firstMesh.spacingCm
               ? String(a.mesh.spacingCm)
+              : '',
+          sheetLength:
+            a.mesh.sheetLengthM !== firstMesh.sheetLengthM
+              ? String(a.mesh.sheetLengthM)
+              : '',
+          sheetWidth:
+            a.mesh.sheetWidthM !== firstMesh.sheetWidthM
+              ? String(a.mesh.sheetWidthM)
               : '',
         }))
       );
@@ -219,6 +239,8 @@ export default function NewOrderScreen() {
             canDelete={drafts.length > 1}
             defaultDiameterMm={mesh.wireDiameterMm}
             defaultSpacingCm={mesh.spacingCm}
+            defaultSheetLengthM={mesh.sheetLengthM}
+            defaultSheetWidthM={mesh.sheetWidthM}
           />
         ))}
         <Pressable
