@@ -27,11 +27,28 @@ function newDraft(index: number): AreaDraft {
     name: `${strings.areaDefaultName} ${index}`,
     length: '',
     width: '',
-    diameter: '',
-    spacing: '',
-    sheetLength: '',
-    sheetWidth: '',
+    inherit: true,
+    overlap: '',
+    mesh: undefined,
   };
+}
+
+function meshEquals(a: MeshSpec, b: MeshSpec): boolean {
+  return (
+    a.sheetLengthM === b.sheetLengthM &&
+    a.sheetWidthM === b.sheetWidthM &&
+    a.wireDiameterMm === b.wireDiameterMm &&
+    a.spacingCm === b.spacingCm
+  );
+}
+
+function validMesh(m: MeshSpec): boolean {
+  return (
+    m.sheetLengthM > 0 &&
+    m.sheetWidthM > 0 &&
+    m.wireDiameterMm > 0 &&
+    m.spacingCm > 0
+  );
 }
 
 function draftsToAreas(
@@ -43,37 +60,26 @@ function draftsToAreas(
     const lengthM = parseNumber(d.length);
     const widthM = parseNumber(d.width);
     if (!lengthM || !widthM || lengthM <= 0 || widthM <= 0) return null;
-    // שדות ריקים יורשים מהמפרט הכללי של ההזמנה
-    const wireDiameterMm = d.diameter.trim()
-      ? parseNumber(d.diameter)
-      : mesh.wireDiameterMm;
-    const spacingCm = d.spacing.trim()
-      ? parseNumber(d.spacing)
-      : mesh.spacingCm;
-    const sheetLengthM = d.sheetLength.trim()
-      ? parseNumber(d.sheetLength)
-      : mesh.sheetLengthM;
-    const sheetWidthM = d.sheetWidth.trim()
-      ? parseNumber(d.sheetWidth)
-      : mesh.sheetWidthM;
-    if (
-      !wireDiameterMm ||
-      !spacingCm ||
-      !sheetLengthM ||
-      !sheetWidthM ||
-      wireDiameterMm <= 0 ||
-      spacingCm <= 0 ||
-      sheetLengthM <= 0 ||
-      sheetWidthM <= 0
-    ) {
-      return null;
+    if (d.inherit || !d.mesh) {
+      areas.push({
+        id: d.id,
+        name: d.name.trim() || strings.areaDefaultName,
+        lengthM,
+        widthM,
+        mesh: { ...mesh },
+      });
+      continue;
     }
+    if (!validMesh(d.mesh)) return null;
+    const overlapCm = parseNumber(d.overlap);
+    if (overlapCm === null || overlapCm < 0) return null;
     areas.push({
       id: d.id,
       name: d.name.trim() || strings.areaDefaultName,
       lengthM,
       widthM,
-      mesh: { ...mesh, wireDiameterMm, spacingCm, sheetLengthM, sheetWidthM },
+      mesh: { ...d.mesh },
+      overlapCm,
     });
   }
   return areas;
@@ -86,8 +92,6 @@ export default function NewOrderScreen() {
   const [title, setTitle] = useState('');
   const [overlap, setOverlap] = useState(String(DEFAULT_OVERLAP_CM));
   const [mesh, setMesh] = useState<MeshSpec>(DEFAULT_MESH);
-  const [customLength, setCustomLength] = useState('');
-  const [customWidth, setCustomWidth] = useState('');
   const [drafts, setDrafts] = useState<AreaDraft[]>([newDraft(1)]);
   const [existingCreatedAt, setExistingCreatedAt] = useState<string | null>(
     null
@@ -102,33 +106,19 @@ export default function NewOrderScreen() {
       setExistingCreatedAt(order.createdAt);
       const firstMesh = order.areas[0]?.mesh ?? DEFAULT_MESH;
       setMesh(firstMesh);
-      if (firstMesh.isCustomSize) {
-        setCustomLength(String(firstMesh.sheetLengthM));
-        setCustomWidth(String(firstMesh.sheetWidthM));
-      }
       setDrafts(
-        order.areas.map((a) => ({
-          id: a.id,
-          name: a.name,
-          length: String(a.lengthM),
-          width: String(a.widthM),
-          diameter:
-            a.mesh.wireDiameterMm !== firstMesh.wireDiameterMm
-              ? String(a.mesh.wireDiameterMm)
-              : '',
-          spacing:
-            a.mesh.spacingCm !== firstMesh.spacingCm
-              ? String(a.mesh.spacingCm)
-              : '',
-          sheetLength:
-            a.mesh.sheetLengthM !== firstMesh.sheetLengthM
-              ? String(a.mesh.sheetLengthM)
-              : '',
-          sheetWidth:
-            a.mesh.sheetWidthM !== firstMesh.sheetWidthM
-              ? String(a.mesh.sheetWidthM)
-              : '',
-        }))
+        order.areas.map((a) => {
+          const inherit = a.overlapCm == null && meshEquals(a.mesh, firstMesh);
+          return {
+            id: a.id,
+            name: a.name,
+            length: String(a.lengthM),
+            width: String(a.widthM),
+            inherit,
+            overlap: String(a.overlapCm ?? order.overlapCm),
+            mesh: inherit ? undefined : { ...a.mesh },
+          };
+        })
       );
     });
   }, [id]);
@@ -218,14 +208,7 @@ export default function NewOrderScreen() {
         />
 
         <Text style={styles.sectionTitle}>{strings.meshSectionTitle}</Text>
-        <MeshSpecPicker
-          value={mesh}
-          onChange={setMesh}
-          customLength={customLength}
-          customWidth={customWidth}
-          onCustomLengthChange={setCustomLength}
-          onCustomWidthChange={setCustomWidth}
-        />
+        <MeshSpecPicker value={mesh} onChange={setMesh} />
 
         <Text style={styles.sectionTitle}>{strings.areasSectionTitle}</Text>
         {drafts.map((d) => (
@@ -237,10 +220,8 @@ export default function NewOrderScreen() {
               setDrafts((prev) => prev.filter((x) => x.id !== d.id))
             }
             canDelete={drafts.length > 1}
-            defaultDiameterMm={mesh.wireDiameterMm}
-            defaultSpacingCm={mesh.spacingCm}
-            defaultSheetLengthM={mesh.sheetLengthM}
-            defaultSheetWidthM={mesh.sheetWidthM}
+            globalMesh={mesh}
+            globalOverlapCm={overlap}
           />
         ))}
         <Pressable

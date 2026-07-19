@@ -215,7 +215,11 @@ export default function OrderDetailScreen() {
               <Text style={styles.cardMeta}>
                 רשת {area.mesh.sheetWidthM}×{area.mesh.sheetLengthM} מ' Ø
                 {area.mesh.wireDiameterMm} @ {area.mesh.spacingCm}/
-                {area.mesh.spacingCm} · {r.sheetCount} רשתות ·{' '}
+                {area.mesh.spacingCm}
+                {area.overlapCm != null
+                  ? ` · ${strings.overlap} ${area.overlapCm} ס"מ`
+                  : ''}{' '}
+                · {r.sheetCount} רשתות ·{' '}
                 {strings.layout}: {r.countAlongLength}×
                 {r.countAlongWidth} (
                 {r.orientation === 'rotated'

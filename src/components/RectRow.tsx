@@ -1,21 +1,28 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { MeshSpec } from '../types';
 import { strings } from '../i18n/strings';
 import NumberField from './NumberField';
+import MeshSpecPicker from './MeshSpecPicker';
 
 export interface AreaDraft {
   id: string;
   name: string;
   length: string;
   width: string;
-  /** override של קוטר הרשת לשטח זה; ריק = ירושה מהמפרט הכללי */
-  diameter: string;
-  /** override של מרווח העיניים לשטח זה; ריק = ירושה מהמפרט הכללי */
-  spacing: string;
-  /** override של אורך הפלטה לשטח זה; ריק = ירושה מהמפרט הכללי */
-  sheetLength: string;
-  /** override של רוחב הפלטה לשטח זה; ריק = ירושה מהמפרט הכללי */
-  sheetWidth: string;
+  /** true = חפייה ומפרט הרשת יורשים מההגדרות הכלליות של ההזמנה */
+  inherit: boolean;
+  /** חפייה ייחודית לשטח (בס"מ) — בשימוש רק כאשר inherit=false */
+  overlap: string;
+  /** מפרט רשת ייחודי לשטח — בשימוש רק כאשר inherit=false */
+  mesh?: MeshSpec;
 }
 
 interface Props {
@@ -23,10 +30,8 @@ interface Props {
   onChange: (draft: AreaDraft) => void;
   onDelete: () => void;
   canDelete: boolean;
-  defaultDiameterMm: number;
-  defaultSpacingCm: number;
-  defaultSheetLengthM: number;
-  defaultSheetWidthM: number;
+  globalMesh: MeshSpec;
+  globalOverlapCm: string;
 }
 
 export default function RectRow({
@@ -34,11 +39,23 @@ export default function RectRow({
   onChange,
   onDelete,
   canDelete,
-  defaultDiameterMm,
-  defaultSpacingCm,
-  defaultSheetLengthM,
-  defaultSheetWidthM,
+  globalMesh,
+  globalOverlapCm,
 }: Props) {
+  const toggleInherit = (inherit: boolean) => {
+    if (inherit) {
+      onChange({ ...draft, inherit: true });
+    } else {
+      // בכיבוי הירושה — מתחילים מהערכים הגלובליים הנוכחיים
+      onChange({
+        ...draft,
+        inherit: false,
+        overlap: draft.overlap || globalOverlapCm,
+        mesh: draft.mesh ?? { ...globalMesh },
+      });
+    }
+  };
+
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
@@ -67,34 +84,31 @@ export default function RectRow({
           onChangeText={(width) => onChange({ ...draft, width })}
         />
       </View>
-      <View style={styles.dimsRow}>
-        <NumberField
-          label={strings.areaDiameterLabel}
-          value={draft.diameter}
-          onChangeText={(diameter) => onChange({ ...draft, diameter })}
-          placeholder={String(defaultDiameterMm)}
+
+      <View style={styles.inheritRow}>
+        <Switch
+          value={draft.inherit}
+          onValueChange={toggleInherit}
+          trackColor={{ true: '#b45309', false: '#ccc' }}
+          thumbColor="#fff"
         />
-        <NumberField
-          label={strings.areaSpacingLabel}
-          value={draft.spacing}
-          onChangeText={(spacing) => onChange({ ...draft, spacing })}
-          placeholder={String(defaultSpacingCm)}
-        />
+        <Text style={styles.inheritLabel}>{strings.inheritFromGlobal}</Text>
       </View>
-      <View style={styles.dimsRow}>
-        <NumberField
-          label={strings.areaSheetLengthLabel}
-          value={draft.sheetLength}
-          onChangeText={(sheetLength) => onChange({ ...draft, sheetLength })}
-          placeholder={String(defaultSheetLengthM)}
-        />
-        <NumberField
-          label={strings.areaSheetWidthLabel}
-          value={draft.sheetWidth}
-          onChangeText={(sheetWidth) => onChange({ ...draft, sheetWidth })}
-          placeholder={String(defaultSheetWidthM)}
-        />
-      </View>
+
+      {!draft.inherit && draft.mesh && (
+        <View style={styles.ownSpec}>
+          <Text style={styles.groupLabel}>{strings.overlapLabel}</Text>
+          <NumberField
+            value={draft.overlap}
+            onChangeText={(overlap) => onChange({ ...draft, overlap })}
+            style={styles.overlapField}
+          />
+          <MeshSpecPicker
+            value={draft.mesh}
+            onChange={(mesh) => onChange({ ...draft, mesh })}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -138,5 +152,35 @@ const styles = StyleSheet.create({
   dimsRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  inheritRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+  },
+  inheritLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: '#555',
+    textAlign: 'right',
+  },
+  ownSpec: {
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e0d8',
+    paddingTop: 4,
+  },
+  groupLabel: {
+    fontSize: 13,
+    color: '#555',
+    marginTop: 12,
+    marginBottom: 6,
+    textAlign: 'right',
+  },
+  overlapField: {
+    maxWidth: 120,
+    alignSelf: 'flex-start',
+    flex: 0,
   },
 });

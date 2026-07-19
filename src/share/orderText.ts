@@ -69,10 +69,14 @@ export function orderToText(order: Order): string {
     for (const area of order.areas) {
       const result = order.results.find((r) => r.areaId === area.id);
       if (!result) continue;
+      const areaOverlap =
+        area.overlapCm != null
+          ? ` · ${strings.overlap} ${area.overlapCm} ס"מ`
+          : '';
       lines.push(
         `• ${area.name}: ${area.lengthM}×${area.widthM} מ' · ` +
           `רשת ${area.mesh.sheetWidthM}×${area.mesh.sheetLengthM} ` +
-          `Ø${area.mesh.wireDiameterMm}@${area.mesh.spacingCm} → ` +
+          `Ø${area.mesh.wireDiameterMm}@${area.mesh.spacingCm}${areaOverlap} → ` +
           `${result.sheetCount} רשתות (${result.countAlongLength}×${result.countAlongWidth})`
       );
     }

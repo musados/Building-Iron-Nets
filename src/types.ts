@@ -12,6 +12,8 @@ export interface RectArea {
   lengthM: number;
   widthM: number;
   mesh: MeshSpec;
+  /** חפייה ייחודית לשטח זה בס"מ; לא מוגדר = חפיית ההזמנה */
+  overlapCm?: number;
 }
 
 export type Orientation = 'as-is' | 'rotated';

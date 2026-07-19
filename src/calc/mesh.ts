@@ -160,7 +160,7 @@ export interface OrderComputation {
 
 /**
  * חישוב הזמנה שלמה: תוצאה לכל שטח, קיבוץ שורות לפי מפרט רשת זהה,
- * ומשקל כולל.
+ * ומשקל כולל. overlapCm הוא ברירת המחדל — שטח יכול להגדיר חפייה משלו.
  */
 export function computeOrder(
   areas: RectArea[],
@@ -170,7 +170,7 @@ export function computeOrder(
   const lineMap = new Map<string, OrderLine>();
 
   for (const area of areas) {
-    const result = coverRect(area, overlapCm);
+    const result = coverRect(area, area.overlapCm ?? overlapCm);
     results.push(result);
 
     const key = meshKey(area.mesh);

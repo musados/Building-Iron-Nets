@@ -137,6 +137,17 @@ describe('computeOrder', () => {
     );
   });
 
+  test('area-level overlap overrides the order overlap', () => {
+    // rect 6×4 sheet 3×2: with overlap 25 → 8 sheets; area override 0 → 2×2=4
+    const withDefault = computeOrder([area(6, 4, {}, 'a1')], 25);
+    const overridden = computeOrder(
+      [{ ...area(6, 4, {}, 'a1'), overlapCm: 0 }],
+      25
+    );
+    expect(withDefault.results[0].sheetCount).toBe(8);
+    expect(overridden.results[0].sheetCount).toBe(4);
+  });
+
   test('empty order computes to zero', () => {
     const { results, lines, totalWeightKg } = computeOrder([], 30);
     expect(results).toHaveLength(0);

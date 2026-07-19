@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MeshSpec } from '../types';
 import { DIAMETERS_MM, PRESET_SHEETS, SPACINGS_CM } from '../constants';
@@ -8,10 +8,6 @@ import NumberField, { parseNumber } from './NumberField';
 interface Props {
   value: MeshSpec;
   onChange: (spec: MeshSpec) => void;
-  customLength: string;
-  customWidth: string;
-  onCustomLengthChange: (text: string) => void;
-  onCustomWidthChange: (text: string) => void;
 }
 
 function Chip({
@@ -35,14 +31,35 @@ function Chip({
   );
 }
 
-export default function MeshSpecPicker({
-  value,
-  onChange,
-  customLength,
-  customWidth,
-  onCustomLengthChange,
-  onCustomWidthChange,
-}: Props) {
+/**
+ * בורר מפרט רשת (צ'יפים): מידת פלטה, קוטר, מרווח — כולל ערכים מותאמים
+ * אישית למידה ולמרווח. מנהל את שדות הטקסט המותאמים בעצמו.
+ */
+export default function MeshSpecPicker({ value, onChange }: Props) {
+  const [customLength, setCustomLength] = useState('');
+  const [customWidth, setCustomWidth] = useState('');
+  const [customSpacing, setCustomSpacing] = useState('');
+  const [customSpacingOn, setCustomSpacingOn] = useState(
+    !SPACINGS_CM.includes(value.spacingCm)
+  );
+
+  // סנכרון בטעינת ערך חיצוני (למשל עריכת הזמנה קיימת)
+  useEffect(() => {
+    if (value.isCustomSize) {
+      setCustomLength((prev) => prev || String(value.sheetLengthM || ''));
+      setCustomWidth((prev) => prev || String(value.sheetWidthM || ''));
+    }
+    if (!SPACINGS_CM.includes(value.spacingCm)) {
+      setCustomSpacingOn(true);
+      setCustomSpacing((prev) => prev || String(value.spacingCm || ''));
+    }
+  }, [
+    value.isCustomSize,
+    value.sheetLengthM,
+    value.sheetWidthM,
+    value.spacingCm,
+  ]);
+
   const applyCustomDims = (lengthText: string, widthText: string) => {
     const l = parseNumber(lengthText);
     const w = parseNumber(widthText);
@@ -52,6 +69,11 @@ export default function MeshSpecPicker({
       sheetLengthM: l && l > 0 ? l : 0,
       sheetWidthM: w && w > 0 ? w : 0,
     });
+  };
+
+  const applyCustomSpacing = (text: string) => {
+    const s = parseNumber(text);
+    onChange({ ...value, spacingCm: s && s > 0 ? s : 0 });
   };
 
   return (
@@ -92,7 +114,7 @@ export default function MeshSpecPicker({
             label={strings.customLength}
             value={customLength}
             onChangeText={(t) => {
-              onCustomLengthChange(t);
+              setCustomLength(t);
               applyCustomDims(t, customWidth);
             }}
           />
@@ -100,7 +122,7 @@ export default function MeshSpecPicker({
             label={strings.customWidth}
             value={customWidth}
             onChangeText={(t) => {
-              onCustomWidthChange(t);
+              setCustomWidth(t);
               applyCustomDims(customLength, t);
             }}
           />
@@ -125,11 +147,35 @@ export default function MeshSpecPicker({
           <Chip
             key={s}
             label={`${s}/${s}`}
-            selected={value.spacingCm === s}
-            onPress={() => onChange({ ...value, spacingCm: s })}
+            selected={!customSpacingOn && value.spacingCm === s}
+            onPress={() => {
+              setCustomSpacingOn(false);
+              onChange({ ...value, spacingCm: s });
+            }}
           />
         ))}
+        <Chip
+          label={strings.customSpacing}
+          selected={customSpacingOn}
+          onPress={() => {
+            setCustomSpacingOn(true);
+            applyCustomSpacing(customSpacing);
+          }}
+        />
       </View>
+
+      {customSpacingOn && (
+        <View style={styles.customRow}>
+          <NumberField
+            label={strings.customSpacingLabel}
+            value={customSpacing}
+            onChangeText={(t) => {
+              setCustomSpacing(t);
+              applyCustomSpacing(t);
+            }}
+          />
+        </View>
+      )}
     </View>
   );
 }

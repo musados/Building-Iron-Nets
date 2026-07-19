@@ -41,7 +41,9 @@ export function orderToHtml(order: Order): string {
       return `<tr>
         <td>${esc(area.name)}</td>
         <td>${area.lengthM}×${area.widthM}</td>
-        <td>${area.mesh.sheetWidthM}×${area.mesh.sheetLengthM} Ø${area.mesh.wireDiameterMm}@${area.mesh.spacingCm}</td>
+        <td>${area.mesh.sheetWidthM}×${area.mesh.sheetLengthM} Ø${area.mesh.wireDiameterMm}@${area.mesh.spacingCm}${
+        area.overlapCm != null ? ` (${esc(strings.overlap)} ${area.overlapCm})` : ''
+      }</td>
         <td>${r.countAlongLength}×${r.countAlongWidth} (${orientation})</td>
         <td>${r.sheetCount}</td>
         <td>${r.wastePct.toFixed(0)}%</td>
