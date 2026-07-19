@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Crypto from 'expo-crypto';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -35,14 +35,19 @@ import {
   ExtractionResult,
 } from '../src/api/serverApi';
 import { confirmAction, notify } from '../src/ui/alerts';
+import { colors, spacing, type, typo } from '../src/ui/theme';
 import { strings } from '../src/i18n/strings';
+import Button from '../src/components/ui/Button';
+import Card from '../src/components/ui/Card';
+import GradientCard from '../src/components/ui/GradientCard';
+import IconTile from '../src/components/ui/IconTile';
 import MeshSpecPicker from '../src/components/MeshSpecPicker';
 import ExtractionReportModal from '../src/components/ExtractionReportModal';
 import ExtractionProgressModal from '../src/components/ExtractionProgressModal';
 import RectRow, { AreaDraft } from '../src/components/RectRow';
 import BarRow, { BarDraft } from '../src/components/BarRow';
 import ColumnCard, { ColumnDraft } from '../src/components/ColumnCard';
-import { parseNumber } from '../src/components/NumberField';
+import NumberField, { parseNumber } from '../src/components/NumberField';
 
 function newAreaDraft(index: number): AreaDraft {
   return {
@@ -219,6 +224,8 @@ export default function PlanOrderScreen() {
   const [extractProgress, setExtractProgress] = useState('');
   const cancelExtractRef = useRef<(() => void) | null>(null);
   const [existingCreatedAt, setExistingCreatedAt] = useState<string | null>(null);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [showServer, setShowServer] = useState(false);
 
   useEffect(() => {
     getServerUrl().then(setServerUrlState);
@@ -462,7 +469,10 @@ export default function PlanOrderScreen() {
         strings.extractResultTitle,
         message,
         strings.extractApply,
-        () => applyExtraction(extraction)
+        () => {
+          applyExtraction(extraction);
+          setStep(2);
+        }
       );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -514,107 +524,176 @@ export default function PlanOrderScreen() {
   };
 
   const hasError = summary !== null && 'error' in summary;
+  const validSummary = summary !== null && !('error' in summary) ? summary : null;
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
-    >
-      <Stack.Screen options={{ title: strings.planOrderTitle }} />
-      <ScrollView
-        style={styles.flex}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={styles.label}>{strings.orderTitleLabel}</Text>
-        <TextInput
-          style={styles.titleInput}
-          value={title}
-          onChangeText={setTitle}
-          placeholder={strings.orderTitlePlaceholder}
-          placeholderTextColor="#999"
-        />
+  const stepLabels = [
+    strings.stepPlan,
+    strings.stepQuantities,
+    strings.stepSummary,
+  ];
 
-        <Text style={styles.sectionTitle}>{strings.planSectionTitle}</Text>
-        <Text style={styles.hint}>{strings.dwgNote}</Text>
+  const renderStep1 = () => (
+    <>
+      <Card title={strings.planSectionTitle}>
         {planFiles.map((f, index) => (
-          <View key={`${f.uri}-${index}`} style={styles.planFileRow}>
+          <View key={`${f.uri}-${index}`} style={styles.fileRow}>
             <Pressable
-              style={styles.planFileDelete}
-              hitSlop={8}
+              hitSlop={6}
+              style={styles.fileDelete}
               onPress={() =>
                 setPlanFiles((prev) => prev.filter((_, i) => i !== index))
               }
             >
-              <Text style={styles.planFileDeleteText}>✕</Text>
+              <Feather name="x" size={16} color={colors.textSecondary} />
             </Pressable>
-            <Pressable
-              style={styles.planFileMain}
-              onPress={() => openPlan(f.uri)}
-            >
-              <Text style={styles.fileName} numberOfLines={1}>
+            <View style={styles.fileTexts}>
+              <Text
+                style={[typo(type.rowTitle), { color: colors.text }]}
+                numberOfLines={1}
+              >
                 {f.name}
               </Text>
-              <Text style={styles.planFileView}>{strings.viewPlan}</Text>
+              <Text style={[typo(type.caption), { color: colors.textSecondary }]}>
+                PDF
+              </Text>
+            </View>
+            <Pressable onPress={() => openPlan(f.uri)} hitSlop={8}>
+              <Text style={[typo({ fontSize: 14, fontWeight: '700' }), { color: colors.primary }]}>
+                {strings.viewPlan}
+              </Text>
             </Pressable>
+            <IconTile icon="file-text" />
           </View>
         ))}
-        <Pressable
-          style={[styles.planBtn, converting && styles.saveDisabled]}
+        <Button
+          label={strings.attachPlan}
           onPress={pickPlan}
-          disabled={converting}
-        >
-          {converting ? (
-            <View style={styles.extractingRow}>
-              <ActivityIndicator color="#fff" />
-              <Text style={styles.planBtnText}>{strings.convertingCad}</Text>
-            </View>
-          ) : (
-            <Text style={styles.planBtnText}>+ {strings.attachPlan}</Text>
-          )}
-        </Pressable>
-
-        <Text style={styles.sectionTitle}>{strings.serverSectionTitle}</Text>
-        <Text style={styles.label}>{strings.serverUrlLabel}</Text>
-        <TextInput
-          style={styles.titleInput}
-          value={serverUrl}
-          onChangeText={setServerUrlState}
-          placeholder={strings.serverUrlPlaceholder}
-          placeholderTextColor="#999"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
+          variant="dashed"
+          icon="plus"
+          small
+          loading={converting}
         />
+        <Text style={[typo(type.caption), styles.hint]}>{strings.dwgNote}</Text>
+      </Card>
+
+      <GradientCard>
+        <View style={styles.heroHeader}>
+          <MaterialCommunityIcons
+            name="creation"
+            size={22}
+            color={colors.onPrimary}
+          />
+          <Text style={[typo({ fontSize: 17, fontWeight: '800' }), { color: colors.onPrimary }]}>
+            {strings.aiHeroTitle}
+          </Text>
+        </View>
+        <Text style={[typo(type.body), styles.heroBody]}>
+          {strings.aiHeroBody}
+        </Text>
         <Pressable
-          style={[styles.extractBtn, extracting && styles.saveDisabled]}
+          style={styles.heroButton}
           onPress={extract}
           disabled={extracting}
         >
-          {extracting ? (
-            <View style={styles.extractingRow}>
-              <ActivityIndicator color="#fff" />
-              <Text style={styles.planBtnText}>{strings.extracting}</Text>
-            </View>
-          ) : (
-            <Text style={styles.planBtnText}>{strings.extractAi}</Text>
-          )}
+          <Text style={[typo(type.button), { color: colors.primaryDeep }]}>
+            {strings.extractAi}
+          </Text>
         </Pressable>
+      </GradientCard>
 
-        <Text style={styles.sectionTitle}>{strings.overlapLabel}</Text>
-        <TextInput
-          style={styles.overlapInput}
-          value={overlap}
-          onChangeText={setOverlap}
-          keyboardType="decimal-pad"
+      <Pressable
+        style={styles.serverToggle}
+        onPress={() => setShowServer((s) => !s)}
+      >
+        <Feather
+          name={showServer ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={colors.textSecondary}
         />
+        <Text style={[typo(type.secondary), { color: colors.textSecondary }]}>
+          {strings.serverSettingsToggle}
+        </Text>
+      </Pressable>
+      {showServer && (
+        <Card>
+          <Text style={[typo(type.caption), styles.fieldLabel]}>
+            {strings.serverUrlLabel}
+          </Text>
+          <TextInput
+            style={[styles.textField, typo(type.body)]}
+            value={serverUrl}
+            onChangeText={setServerUrlState}
+            placeholder={strings.serverUrlPlaceholder}
+            placeholderTextColor={colors.textTertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+        </Card>
+      )}
 
-        <Text style={styles.sectionTitle}>{strings.meshSectionTitle}</Text>
+      <Button
+        label={strings.skipManual}
+        onPress={() => setStep(2)}
+        variant="tonal"
+        small
+        style={styles.skipBtn}
+      />
+    </>
+  );
+
+  const renderStep2 = () => (
+    <>
+      {aiReport && (
+        <View style={styles.infoBanner}>
+          <Text
+            style={[
+              typo(type.secondary),
+              { color: colors.primaryDeep, flex: 1, textAlign: 'right' },
+            ]}
+          >
+            {strings.extractInfoBanner}
+          </Text>
+          <Pressable onPress={() => setShowReport(true)} hitSlop={8}>
+            <Text
+              style={[
+                typo({ fontSize: 13, fontWeight: '700' }),
+                { color: colors.primary, textDecorationLine: 'underline' },
+              ]}
+            >
+              {strings.howCalculated}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
+      <Card title={strings.globalSpecTitle}>
+        <Text style={[typo(type.caption), styles.fieldLabel]}>
+          {strings.overlapLabel}
+        </Text>
+        <View style={styles.overlapRow}>
+          <NumberField value={overlap} onChangeText={setOverlap} />
+          <View style={styles.overlapSpacer} />
+        </View>
         <MeshSpecPicker value={mesh} onChange={setMesh} />
+      </Card>
 
-        <Text style={styles.sectionTitle}>{strings.areasSectionTitle}</Text>
-        {areaDrafts.map((d) => (
+      <Card
+        title={strings.areasSectionTitle}
+        headerRight={
+          <Pressable
+            onPress={() =>
+              setAreaDrafts((prev) => [...prev, newAreaDraft(prev.length + 1)])
+            }
+            hitSlop={8}
+          >
+            <Text style={[typo({ fontSize: 14, fontWeight: '700' }), { color: colors.primary }]}>
+              {strings.addLink}
+            </Text>
+          </Pressable>
+        }
+      >
+        {areaDrafts.map((d, i) => (
           <RectRow
             key={d.id}
             draft={d}
@@ -629,19 +708,25 @@ export default function PlanOrderScreen() {
             canDelete
             globalMesh={mesh}
             globalOverlapCm={overlap}
+            isLast={i === areaDrafts.length - 1}
           />
         ))}
-        <Pressable
-          style={styles.addButton}
-          onPress={() =>
-            setAreaDrafts((prev) => [...prev, newAreaDraft(prev.length + 1)])
-          }
-        >
-          <Text style={styles.addButtonText}>+ {strings.addArea}</Text>
-        </Pressable>
+      </Card>
 
-        <Text style={styles.sectionTitle}>{strings.barsSectionTitle}</Text>
-        {barDrafts.map((d) => (
+      <Card
+        title={strings.barsSectionTitle}
+        headerRight={
+          <Pressable
+            onPress={() => setBarDrafts((prev) => [...prev, newBarDraft()])}
+            hitSlop={8}
+          >
+            <Text style={[typo({ fontSize: 14, fontWeight: '700' }), { color: colors.primary }]}>
+              {strings.addLink}
+            </Text>
+          </Pressable>
+        }
+      >
+        {barDrafts.map((d, i) => (
           <BarRow
             key={d.id}
             draft={d}
@@ -653,17 +738,30 @@ export default function PlanOrderScreen() {
             onDelete={() =>
               setBarDrafts((prev) => prev.filter((x) => x.id !== d.id))
             }
+            isLast={i === barDrafts.length - 1}
           />
         ))}
-        <Pressable
-          style={styles.addButton}
-          onPress={() => setBarDrafts((prev) => [...prev, newBarDraft()])}
-        >
-          <Text style={styles.addButtonText}>+ {strings.addBar}</Text>
-        </Pressable>
+      </Card>
 
-        <Text style={styles.sectionTitle}>{strings.columnsSectionTitle}</Text>
-        {columnDrafts.map((d) => (
+      <Card
+        title={strings.columnsSectionTitle}
+        headerRight={
+          <Pressable
+            onPress={() =>
+              setColumnDrafts((prev) => [
+                ...prev,
+                newColumnDraft(prev.length + 1),
+              ])
+            }
+            hitSlop={8}
+          >
+            <Text style={[typo({ fontSize: 14, fontWeight: '700' }), { color: colors.primary }]}>
+              {strings.addLink}
+            </Text>
+          </Pressable>
+        }
+      >
+        {columnDrafts.map((d, i) => (
           <ColumnCard
             key={d.id}
             draft={d}
@@ -675,43 +773,212 @@ export default function PlanOrderScreen() {
             onDelete={() =>
               setColumnDrafts((prev) => prev.filter((x) => x.id !== d.id))
             }
+            isLast={i === columnDrafts.length - 1}
           />
         ))}
-        <Pressable
-          style={styles.addButton}
-          onPress={() =>
-            setColumnDrafts((prev) => [...prev, newColumnDraft(prev.length + 1)])
-          }
-        >
-          <Text style={styles.addButtonText}>+ {strings.addColumn}</Text>
-        </Pressable>
+      </Card>
+    </>
+  );
+
+  const renderStep3 = () => (
+    <>
+      <Card>
+        <Text style={[typo(type.caption), styles.fieldLabel]}>
+          {strings.orderTitleLabel}
+        </Text>
+        <TextInput
+          style={[styles.textField, typo(type.body)]}
+          value={title}
+          onChangeText={setTitle}
+          placeholder={strings.orderTitlePlaceholder}
+          placeholderTextColor={colors.textTertiary}
+        />
+      </Card>
+
+      {validSummary && (
+        <GradientCard>
+          <Text style={[typo(type.secondary), styles.heroBody]}>
+            {strings.grandTotalWeight}
+          </Text>
+          <Text style={[typo(type.heroNumber), { color: colors.onPrimary }]}>
+            {validSummary.totalWeightKg.toFixed(0)} ק"ג
+          </Text>
+          <View style={styles.heroPills}>
+            {validSummary.totalSheets > 0 && (
+              <View style={styles.heroPill}>
+                <Text style={[typo(type.secondary), { color: colors.onPrimary }]}>
+                  {validSummary.totalSheets} רשתות
+                </Text>
+              </View>
+            )}
+            {validSummary.totalBars > 0 && (
+              <View style={styles.heroPill}>
+                <Text style={[typo(type.secondary), { color: colors.onPrimary }]}>
+                  {validSummary.totalBars} מוטות
+                </Text>
+              </View>
+            )}
+            {validSummary.totalColumns > 0 && (
+              <View style={styles.heroPill}>
+                <Text style={[typo(type.secondary), { color: colors.onPrimary }]}>
+                  {validSummary.totalColumns} עמודים
+                </Text>
+              </View>
+            )}
+          </View>
+        </GradientCard>
+      )}
+
+      {validSummary && validSummary.meshComp.lines.length > 0 && (
+        <Card title={strings.orderLines}>
+          {validSummary.meshComp.lines.map((line, i) => (
+            <View
+              key={i}
+              style={[
+                styles.denseRow,
+                i < validSummary.meshComp.lines.length - 1 &&
+                  styles.denseSeparator,
+              ]}
+            >
+              <Text
+                style={[typo(type.body), { color: colors.text, flex: 1 }]}
+                numberOfLines={1}
+              >
+                {strings.meshLine(
+                  line.mesh.sheetLengthM,
+                  line.mesh.sheetWidthM,
+                  line.mesh.wireDiameterMm,
+                  line.mesh.spacingCm
+                )}
+              </Text>
+              <Text style={[typo(type.secondary), { color: colors.textSecondary }]}>
+                ×{line.quantity}
+              </Text>
+              <Text style={[typo({ fontSize: 14, fontWeight: '700' }), { color: colors.text }]}>
+                {line.totalWeightKg.toFixed(0)} ק"ג
+              </Text>
+            </View>
+          ))}
+        </Card>
+      )}
+
+      {validSummary && validSummary.extras.barLines.length > 0 && (
+        <Card title={strings.barLinesTitle}>
+          {validSummary.extras.barLines.map((line, i) => (
+            <View
+              key={i}
+              style={[
+                styles.denseRow,
+                i < validSummary.extras.barLines.length - 1 &&
+                  styles.denseSeparator,
+              ]}
+            >
+              <Text style={[typo(type.body), { color: colors.text, flex: 1 }]}>
+                מוט Ø{line.diameterMm} × {line.lengthM} מ'
+              </Text>
+              <Text style={[typo(type.secondary), { color: colors.textSecondary }]}>
+                ×{line.quantity}
+              </Text>
+              <Text style={[typo({ fontSize: 14, fontWeight: '700' }), { color: colors.text }]}>
+                {line.totalWeightKg.toFixed(0)} ק"ג
+              </Text>
+            </View>
+          ))}
+        </Card>
+      )}
+    </>
+  );
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={90}
+    >
+      <Stack.Screen options={{ title: strings.planOrderTitle }} />
+
+      <View style={styles.stepIndicator}>
+        {stepLabels.map((label, i) => {
+          const stepNum = (i + 1) as 1 | 2 | 3;
+          return (
+            <Pressable
+              key={label}
+              style={styles.stepSegment}
+              onPress={() => stepNum < step && setStep(stepNum)}
+            >
+              <View
+                style={[
+                  styles.stepBar,
+                  stepNum <= step && styles.stepBarActive,
+                ]}
+              />
+              <Text
+                style={[
+                  typo({ fontSize: 12, fontWeight: stepNum === step ? '700' : '400' }),
+                  {
+                    color:
+                      stepNum <= step ? colors.primary : colors.textTertiary,
+                    textAlign: 'center',
+                  },
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {step === 1 && renderStep1()}
+        {step === 2 && renderStep2()}
+        {step === 3 && renderStep3()}
       </ScrollView>
 
       <View style={styles.footer}>
-        {aiReport && (
-          <Pressable onPress={() => setShowReport(true)}>
-            <Text style={styles.reportLink}>🔍 {strings.aiReportButton}</Text>
-          </Pressable>
+        {step > 1 && (
+          <View style={styles.totalRow}>
+            <Text style={[typo(type.caption), { color: colors.textSecondary }]}>
+              {strings.estimatedTotal}
+            </Text>
+            <Text style={[typo({ fontSize: 17, fontWeight: '800' }), { color: colors.text }]}>
+              {validSummary
+                ? strings.liveSummaryPlan(
+                    validSummary.totalSheets,
+                    validSummary.totalBars,
+                    validSummary.totalColumns,
+                    validSummary.totalWeightKg
+                  )
+                : hasError && summary && 'error' in summary
+                  ? summary.error
+                  : strings.invalidInput}
+            </Text>
+          </View>
         )}
-        <Text style={styles.summaryText}>
-          {summary === null
-            ? strings.invalidInput
-            : 'error' in summary
-              ? summary.error
-              : strings.liveSummaryPlan(
-                  summary.totalSheets,
-                  summary.totalBars,
-                  summary.totalColumns,
-                  summary.totalWeightKg
-                )}
-        </Text>
-        <Pressable
-          style={[styles.saveButton, (summary === null || hasError) && styles.saveDisabled]}
-          onPress={save}
-          disabled={summary === null || hasError}
-        >
-          <Text style={styles.saveButtonText}>{strings.saveAndShow}</Text>
-        </Pressable>
+        {step === 1 && (
+          <Button
+            label={strings.continueToQuantities}
+            onPress={() => setStep(2)}
+          />
+        )}
+        {step === 2 && (
+          <Button
+            label={strings.continueToSummary}
+            onPress={() => setStep(3)}
+            disabled={validSummary === null}
+          />
+        )}
+        {step === 3 && (
+          <Button
+            label={strings.saveAndShow}
+            onPress={save}
+            disabled={validSummary === null}
+          />
+        )}
       </View>
 
       {aiReport && (
@@ -737,180 +1004,151 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 16,
+    padding: spacing.xl,
     paddingBottom: 40,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
-  label: {
-    fontSize: 13,
-    color: '#555',
-    marginBottom: 4,
-    marginTop: 8,
-    textAlign: 'right',
-  },
-  hint: {
-    fontSize: 12,
-    color: '#8a6d3b',
-    marginBottom: 8,
-    textAlign: 'right',
-  },
-  titleInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 16,
-    textAlign: 'right',
-    backgroundColor: '#fff',
-    color: '#1a1a1a',
-  },
-  overlapInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 16,
-    textAlign: 'right',
-    backgroundColor: '#fff',
-    color: '#1a1a1a',
-    width: 120,
-    alignSelf: 'flex-start',
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginTop: 20,
-    marginBottom: 6,
-    textAlign: 'right',
-  },
-  planRow: {
+  stepIndicator: {
     flexDirection: 'row',
-    gap: 10,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
-  planFileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#faf8f5',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#e5e0d8',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-  },
-  planFileMain: {
+  stepSegment: {
     flex: 1,
+    gap: 6,
+  },
+  stepBar: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.chipOutline,
+  },
+  stepBarActive: {
+    backgroundColor: colors.primary,
+  },
+  fileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.hairline,
+    marginBottom: spacing.sm,
   },
-  planFileView: {
-    color: '#b45309',
-    fontSize: 13,
-    fontWeight: '600',
+  fileTexts: {
+    flex: 1,
+    gap: 2,
   },
-  planFileDelete: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#f0e8dd',
+  fileDelete: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.fillSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  planFileDeleteText: {
-    color: '#8a6d3b',
-    fontSize: 13,
-    fontWeight: '700',
+  hint: {
+    color: colors.textSecondary,
+    textAlign: 'right',
+    marginTop: spacing.sm,
   },
-  planBtn: {
-    flex: 1,
-    backgroundColor: '#b45309',
-    borderRadius: 10,
-    paddingVertical: 12,
+  heroHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  planBtnOutline: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#b45309',
+  heroBody: {
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'right',
+    lineHeight: 21,
+    marginBottom: spacing.lg,
   },
-  planBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+  heroButton: {
+    backgroundColor: colors.onPrimary,
+    borderRadius: 999,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  planBtnOutlineText: {
-    color: '#b45309',
+  serverToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  fileName: {
-    fontSize: 12,
-    color: '#777',
-    marginTop: 6,
+  fieldLabel: {
+    color: colors.textSecondary,
+    textAlign: 'right',
+    marginBottom: 6,
+  },
+  textField: {
+    backgroundColor: colors.fillInput,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    color: colors.text,
     textAlign: 'right',
   },
-  extractBtn: {
-    backgroundColor: '#7c3f00',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 10,
+  skipBtn: {
+    alignSelf: 'center',
+    minWidth: 220,
   },
-  extractingRow: {
+  infoBanner: {
     flexDirection: 'row',
-    gap: 10,
     alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.primaryTint,
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
   },
-  addButton: {
-    borderWidth: 1,
-    borderColor: '#b45309',
-    borderRadius: 10,
-    borderStyle: 'dashed',
-    paddingVertical: 12,
+  overlapRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+  },
+  overlapSpacer: {
+    flex: 2,
+  },
+  denseRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    gap: spacing.md,
+    paddingVertical: 10,
   },
-  addButtonText: {
-    color: '#b45309',
-    fontSize: 15,
-    fontWeight: '600',
+  denseSeparator: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.hairline,
+  },
+  heroPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  heroPill: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
   footer: {
-    borderTopWidth: 1,
-    borderTopColor: '#e5e0d8',
-    backgroundColor: '#fff',
-    padding: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.hairline,
+    backgroundColor: colors.card,
+    padding: spacing.lg,
     paddingBottom: 28,
-    gap: 10,
+    gap: spacing.md,
   },
-  summaryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    textAlign: 'center',
-  },
-  reportLink: {
-    color: '#7c3f00',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-  },
-  saveButton: {
-    backgroundColor: '#b45309',
-    borderRadius: 12,
-    paddingVertical: 14,
+  totalRow: {
     alignItems: 'center',
-  },
-  saveDisabled: {
-    backgroundColor: '#d0c5b5',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
+    gap: 2,
   },
 });

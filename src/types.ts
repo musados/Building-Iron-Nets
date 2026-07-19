@@ -144,4 +144,8 @@ export interface OrderSummary {
   createdAt: string;
   totalSheets: number;
   totalWeightKg: number;
+  totalBars?: number;
+  totalColumns?: number;
+  orderType?: OrderType;
+  hasAi?: boolean;
 }

@@ -14,14 +14,17 @@ import {
   useLocalSearchParams,
   useRouter,
 } from 'expo-router';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Order, orderPlanFiles } from '../../src/types';
 import { getOrder } from '../../src/storage/orderRepo';
 import { orderToText } from '../../src/share/orderText';
 import { orderToHtml } from '../../src/share/orderHtml';
 import { notify } from '../../src/ui/alerts';
 import { printHtmlAsPdf } from '../../src/ui/printHtml';
+import { colors, spacing, type, typo } from '../../src/ui/theme';
+import Button from '../../src/components/ui/Button';
+import Card from '../../src/components/ui/Card';
+import GradientCard from '../../src/components/ui/GradientCard';
 import ExtractionReportModal from '../../src/components/ExtractionReportModal';
 import { strings } from '../../src/i18n/strings';
 
@@ -74,7 +77,9 @@ export default function OrderDetailScreen() {
     return (
       <View style={styles.center}>
         <Stack.Screen options={{ title: strings.detailTitle }} />
-        <Text style={styles.notFound}>{strings.orderNotFound}</Text>
+        <Text style={[typo(type.body), { color: colors.textSecondary }]}>
+          {strings.orderNotFound}
+        </Text>
       </View>
     );
   }
@@ -85,82 +90,163 @@ export default function OrderDetailScreen() {
 
   return (
     <View style={styles.flex}>
-      <Stack.Screen
-        options={{ title: order.title || strings.detailTitle }}
-      />
+      <Stack.Screen options={{ title: order.title || strings.detailTitle }} />
       <ScrollView contentContainerStyle={styles.content}>
-        {order.aiExtraction && (
-          <Pressable
-            style={styles.reportBtn}
-            onPress={() => setShowReport(true)}
-          >
-            <Text style={styles.reportBtnText}>
-              🔍 {strings.aiReportButton}
-            </Text>
-          </Pressable>
-        )}
-        <Text style={styles.meta}>
+        <Text style={[typo(type.caption), styles.meta]}>
           {strings.createdAt}: {fmtDate(order.createdAt)} · {strings.overlap}:{' '}
           {order.overlapCm} ס"מ
         </Text>
 
-        <Text style={styles.sectionTitle}>{strings.orderLines}</Text>
-        {order.lines.map((line, i) => (
-          <View key={i} style={styles.card}>
-            <Text style={styles.cardTitle}>
-              {strings.meshLine(
-                line.mesh.sheetLengthM,
-                line.mesh.sheetWidthM,
-                line.mesh.wireDiameterMm,
-                line.mesh.spacingCm
-              )}
-            </Text>
-            <Text style={styles.cardMeta}>
-              {strings.quantity}: {line.quantity} {strings.units} ·{' '}
-              {strings.unitWeight}: {line.unitWeightKg.toFixed(1)} ק"ג ·{' '}
-              {strings.totalWeight}: {line.totalWeightKg.toFixed(0)} ק"ג
-            </Text>
-          </View>
-        ))}
-
-        {(order.barLines?.length ?? 0) > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>{strings.barLinesTitle}</Text>
-            {order.barLines!.map((line, i) => (
-              <View key={i} style={styles.card}>
-                <Text style={styles.cardTitle}>
-                  מוט Ø{line.diameterMm} מ"מ × {line.lengthM} מ'
+        <GradientCard>
+          <Text style={[typo(type.secondary), styles.heroLabel]}>
+            {strings.heroWeightLabel}
+          </Text>
+          <Text style={[typo(type.heroNumber), { color: colors.onPrimary }]}>
+            {order.totalWeightKg.toFixed(0)} ק"ג
+          </Text>
+          <View style={styles.heroPills}>
+            {totalSheets > 0 && (
+              <View style={styles.heroPill}>
+                <Text style={[typo(type.secondary), { color: colors.onPrimary }]}>
+                  {totalSheets} רשתות
                 </Text>
-                <Text style={styles.cardMeta}>
-                  {strings.quantity}: {line.quantity} {strings.units} ·{' '}
-                  {strings.unitWeight}: {line.unitWeightKg.toFixed(1)} ק"ג ·{' '}
-                  {strings.totalWeight}: {line.totalWeightKg.toFixed(0)} ק"ג
+              </View>
+            )}
+            {totalBars > 0 && (
+              <View style={styles.heroPill}>
+                <Text style={[typo(type.secondary), { color: colors.onPrimary }]}>
+                  {totalBars} מוטות
+                </Text>
+              </View>
+            )}
+            {totalColumns > 0 && (
+              <View style={styles.heroPill}>
+                <Text style={[typo(type.secondary), { color: colors.onPrimary }]}>
+                  {totalColumns} עמודים
+                </Text>
+              </View>
+            )}
+          </View>
+        </GradientCard>
+
+        {order.aiExtraction && (
+          <Pressable
+            style={styles.reportRow}
+            onPress={() => setShowReport(true)}
+          >
+            <MaterialCommunityIcons
+              name="creation"
+              size={18}
+              color={colors.primary}
+            />
+            <Text
+              style={[
+                typo({ fontSize: 14, fontWeight: '700' }),
+                { color: colors.primaryDeep, flex: 1, textAlign: 'right' },
+              ]}
+            >
+              {strings.aiReportButton}
+            </Text>
+            <Feather
+              name="chevron-left"
+              size={18}
+              color={colors.primary}
+            />
+          </Pressable>
+        )}
+
+        {order.lines.length > 0 && (
+          <Card title={strings.orderLines}>
+            {order.lines.map((line, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.denseRow,
+                  i < order.lines.length - 1 && styles.denseSeparator,
+                ]}
+              >
+                <Text
+                  style={[typo(type.body), { color: colors.text, flex: 1 }]}
+                >
+                  {strings.meshLine(
+                    line.mesh.sheetLengthM,
+                    line.mesh.sheetWidthM,
+                    line.mesh.wireDiameterMm,
+                    line.mesh.spacingCm
+                  )}
+                </Text>
+                <Text
+                  style={[typo(type.secondary), { color: colors.textSecondary }]}
+                >
+                  ×{line.quantity}
+                </Text>
+                <Text
+                  style={[typo({ fontSize: 14, fontWeight: '700' }), { color: colors.text }]}
+                >
+                  {line.totalWeightKg.toFixed(0)} ק"ג
                 </Text>
               </View>
             ))}
-          </>
+          </Card>
+        )}
+
+        {(order.barLines?.length ?? 0) > 0 && (
+          <Card title={strings.barLinesTitle}>
+            {order.barLines!.map((line, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.denseRow,
+                  i < order.barLines!.length - 1 && styles.denseSeparator,
+                ]}
+              >
+                <Text style={[typo(type.body), { color: colors.text, flex: 1 }]}>
+                  מוט Ø{line.diameterMm} × {line.lengthM} מ'
+                </Text>
+                <Text
+                  style={[typo(type.secondary), { color: colors.textSecondary }]}
+                >
+                  ×{line.quantity}
+                </Text>
+                <Text
+                  style={[typo({ fontSize: 14, fontWeight: '700' }), { color: colors.text }]}
+                >
+                  {line.totalWeightKg.toFixed(0)} ק"ג
+                </Text>
+              </View>
+            ))}
+          </Card>
         )}
 
         {(order.columns?.length ?? 0) > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>{strings.columnsBreakdown}</Text>
-            {order.columns!.map((col) => {
+          <Card title={strings.columnsBreakdown}>
+            {order.columns!.map((col, i) => {
               const r = order.columnResults?.find(
                 (res) => res.columnId === col.id
               );
               if (!r) return null;
               return (
-                <View key={col.id} style={styles.card}>
-                  <Text style={styles.cardTitle}>
+                <View
+                  key={col.id}
+                  style={[
+                    styles.columnRow,
+                    i < order.columns!.length - 1 && styles.denseSeparator,
+                  ]}
+                >
+                  <Text style={[typo(type.rowTitle), { color: colors.text }]}>
                     {col.name} × {col.count} — {col.widthCm}/{col.depthCm} ס"מ,
                     גובה {col.heightM} מ'
                   </Text>
-                  <Text style={styles.cardMeta}>
+                  <Text
+                    style={[typo(type.secondary), styles.columnMeta]}
+                  >
                     {strings.longBars}: {r.longBarsTotal} × Ø
                     {col.longBarDiameterMm} ({strings.cutLength}{' '}
                     {r.longBarLengthM} מ') · {r.longBarsWeightKg.toFixed(0)} ק"ג
                   </Text>
-                  <Text style={styles.cardMeta}>
+                  <Text
+                    style={[typo(type.secondary), styles.columnMeta]}
+                  >
                     {strings.stirrups}: {r.stirrupsTotal} × Ø
                     {col.stirrupDiameterMm} @ {col.stirrupSpacingCm} ס"מ (
                     {strings.cutLength} {r.stirrupLengthM.toFixed(2)} מ') ·{' '}
@@ -169,78 +255,76 @@ export default function OrderDetailScreen() {
                 </View>
               );
             })}
-          </>
+          </Card>
         )}
 
-        <View style={styles.totalsBox}>
-          <Text style={styles.totalsText}>
-            {strings.grandTotalSheets}: {totalSheets}
-          </Text>
-          {totalBars > 0 && (
-            <Text style={styles.totalsText}>
-              {strings.grandTotalBars}: {totalBars}
-            </Text>
-          )}
-          {totalColumns > 0 && (
-            <Text style={styles.totalsText}>
-              {strings.grandTotalColumns}: {totalColumns}
-            </Text>
-          )}
-          <Text style={styles.totalsText}>
-            {strings.grandTotalWeight}: {order.totalWeightKg.toFixed(0)} ק"ג
-          </Text>
-        </View>
+        {order.areas.length > 0 && (
+          <Card title={strings.areasBreakdown}>
+            {order.areas.map((area, i) => {
+              const r = order.results.find((res) => res.areaId === area.id);
+              if (!r) return null;
+              return (
+                <View
+                  key={area.id}
+                  style={[
+                    styles.columnRow,
+                    i < order.areas.length - 1 && styles.denseSeparator,
+                  ]}
+                >
+                  <Text style={[typo(type.rowTitle), { color: colors.text }]}>
+                    {area.name}: {area.lengthM}×{area.widthM} מ'
+                  </Text>
+                  <Text style={[typo(type.secondary), styles.columnMeta]}>
+                    רשת {area.mesh.sheetWidthM}×{area.mesh.sheetLengthM} מ' Ø
+                    {area.mesh.wireDiameterMm} @ {area.mesh.spacingCm}/
+                    {area.mesh.spacingCm}
+                    {area.overlapCm != null
+                      ? ` · ${strings.overlap} ${area.overlapCm} ס"מ`
+                      : ''}
+                  </Text>
+                  <Text style={[typo(type.secondary), styles.columnMeta]}>
+                    {r.countAlongLength}×{r.countAlongWidth} רשתות (
+                    {r.orientation === 'rotated'
+                      ? strings.orientationRotated
+                      : strings.orientationAsIs}
+                    ) · {strings.waste}: {r.wastePct.toFixed(0)}%
+                  </Text>
+                </View>
+              );
+            })}
+          </Card>
+        )}
 
         {orderPlanFiles(order).map((f, i) => (
-          <Pressable
+          <Button
             key={`${f.uri}-${i}`}
-            style={styles.planBtn}
+            label={`${strings.viewPlan} — ${f.name}`}
             onPress={() => openPlan(f.uri)}
-          >
-            <Text style={styles.planBtnText}>
-              {strings.viewPlan} — {f.name}
-            </Text>
-          </Pressable>
+            variant="tonal"
+            icon="file-text"
+            small
+            style={styles.planBtn}
+          />
         ))}
-
-        <Text style={styles.sectionTitle}>{strings.areasBreakdown}</Text>
-        {order.areas.map((area) => {
-          const r = order.results.find((res) => res.areaId === area.id);
-          if (!r) return null;
-          return (
-            <View key={area.id} style={styles.card}>
-              <Text style={styles.cardTitle}>
-                {area.name}: {area.lengthM}×{area.widthM} מ'
-              </Text>
-              <Text style={styles.cardMeta}>
-                רשת {area.mesh.sheetWidthM}×{area.mesh.sheetLengthM} מ' Ø
-                {area.mesh.wireDiameterMm} @ {area.mesh.spacingCm}/
-                {area.mesh.spacingCm}
-                {area.overlapCm != null
-                  ? ` · ${strings.overlap} ${area.overlapCm} ס"מ`
-                  : ''}{' '}
-                · {r.sheetCount} רשתות ·{' '}
-                {strings.layout}: {r.countAlongLength}×
-                {r.countAlongWidth} (
-                {r.orientation === 'rotated'
-                  ? strings.orientationRotated
-                  : strings.orientationAsIs}
-                ) · {strings.waste}: {r.wastePct.toFixed(0)}%
-              </Text>
-            </View>
-          );
-        })}
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable style={styles.actionBtn} onPress={shareAsPdf}>
-          <Text style={styles.actionText}>{strings.sharePdf}</Text>
-        </Pressable>
-        <Pressable style={styles.actionBtn} onPress={shareAsText}>
-          <Text style={styles.actionText}>{strings.shareText}</Text>
-        </Pressable>
+        <Button
+          label={strings.sharePdf}
+          onPress={shareAsPdf}
+          icon="share"
+          small
+          style={styles.footerGrow}
+        />
+        <Button
+          label={strings.shareText}
+          onPress={shareAsText}
+          variant="tonal"
+          small
+          style={styles.footerGrow}
+        />
         <Pressable
-          style={[styles.actionBtn, styles.editBtn]}
+          style={styles.editBtn}
           onPress={() =>
             router.push(
               order.orderType === 'plan'
@@ -249,9 +333,7 @@ export default function OrderDetailScreen() {
             )
           }
         >
-          <Text style={[styles.actionText, styles.editText]}>
-            {strings.edit}
-          </Text>
+          <Feather name="edit-2" size={18} color={colors.primaryDeep} />
         </Pressable>
       </View>
 
@@ -276,115 +358,84 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  notFound: {
-    fontSize: 16,
-    color: '#888',
-  },
   content: {
-    padding: 16,
+    padding: spacing.xl,
     paddingBottom: 24,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   meta: {
-    fontSize: 13,
-    color: '#777',
+    color: colors.textSecondary,
     textAlign: 'right',
-    marginBottom: 8,
+    marginBottom: spacing.md,
   },
-  reportBtn: {
-    backgroundColor: '#fdf3e3',
-    borderWidth: 1,
-    borderColor: '#e5c88f',
-    borderRadius: 10,
-    paddingVertical: 10,
+  heroLabel: {
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'right',
+  },
+  heroPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  heroPill: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  reportRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    gap: spacing.md,
+    backgroundColor: colors.primaryTint,
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
   },
-  reportBtnText: {
-    color: '#7c3f00',
-    fontSize: 14,
-    fontWeight: '700',
+  denseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: 10,
   },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginTop: 16,
-    marginBottom: 8,
-    textAlign: 'right',
+  denseSeparator: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.hairline,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e0d8',
-    padding: 12,
-    marginBottom: 8,
+  columnRow: {
+    paddingVertical: spacing.md,
+    gap: 4,
   },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    textAlign: 'right',
-  },
-  cardMeta: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 4,
+  columnMeta: {
+    color: colors.textSecondary,
     textAlign: 'right',
     lineHeight: 20,
   },
   planBtn: {
-    backgroundColor: '#7c3f00',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  planBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  totalsBox: {
-    backgroundColor: '#f5f0e8',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 8,
-    gap: 4,
-  },
-  totalsText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#7c3f00',
-    textAlign: 'right',
+    marginBottom: spacing.sm,
   },
   footer: {
     flexDirection: 'row',
-    gap: 10,
-    padding: 14,
-    paddingBottom: 28,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e0d8',
-    backgroundColor: '#fff',
-  },
-  actionBtn: {
-    flex: 1,
-    backgroundColor: '#b45309',
-    borderRadius: 12,
-    paddingVertical: 12,
     alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.lg,
+    paddingBottom: 28,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.hairline,
+    backgroundColor: colors.card,
   },
-  actionText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
+  footerGrow: {
+    flex: 1,
   },
   editBtn: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#b45309',
-  },
-  editText: {
-    color: '#b45309',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

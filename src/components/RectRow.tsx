@@ -1,16 +1,11 @@
-import React from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { MeshSpec } from '../types';
+import { colors, spacing, type, typo } from '../ui/theme';
 import { strings } from '../i18n/strings';
 import NumberField from './NumberField';
 import MeshSpecPicker from './MeshSpecPicker';
+import SummaryRow from './ui/SummaryRow';
 
 export interface AreaDraft {
   id: string;
@@ -32,6 +27,15 @@ interface Props {
   canDelete: boolean;
   globalMesh: MeshSpec;
   globalOverlapCm: string;
+  isLast?: boolean;
+}
+
+function draftMeta(draft: AreaDraft): string {
+  const dims =
+    draft.length && draft.width ? `${draft.length}×${draft.width} מ'` : '—';
+  if (draft.inherit || !draft.mesh) return `${dims} · ${strings.globalSpec}`;
+  const m = draft.mesh;
+  return `${dims} · רשת ${m.sheetWidthM}×${m.sheetLengthM} Ø${m.wireDiameterMm}@${m.spacingCm} · ${strings.overlap} ${draft.overlap}`;
 }
 
 export default function RectRow({
@@ -41,7 +45,10 @@ export default function RectRow({
   canDelete,
   globalMesh,
   globalOverlapCm,
+  isLast,
 }: Props) {
+  const [expanded, setExpanded] = useState(draft.length === '');
+
   const toggleInherit = (inherit: boolean) => {
     if (inherit) {
       onChange({ ...draft, inherit: true });
@@ -57,58 +64,68 @@ export default function RectRow({
   };
 
   return (
-    <View style={styles.card}>
-      <View style={styles.headerRow}>
-        <TextInput
-          style={styles.nameInput}
-          value={draft.name}
-          onChangeText={(name) => onChange({ ...draft, name })}
-          placeholder={strings.areaNamePlaceholder}
-          placeholderTextColor="#999"
-        />
-        {canDelete && (
-          <Pressable onPress={onDelete} style={styles.deleteBtn} hitSlop={8}>
-            <Text style={styles.deleteText}>✕</Text>
-          </Pressable>
-        )}
-      </View>
-      <View style={styles.dimsRow}>
-        <NumberField
-          label={strings.lengthLabel}
-          value={draft.length}
-          onChangeText={(length) => onChange({ ...draft, length })}
-        />
-        <NumberField
-          label={strings.widthLabel}
-          value={draft.width}
-          onChangeText={(width) => onChange({ ...draft, width })}
-        />
-      </View>
-
-      <View style={styles.inheritRow}>
-        <Switch
-          value={draft.inherit}
-          onValueChange={toggleInherit}
-          trackColor={{ true: '#b45309', false: '#ccc' }}
-          thumbColor="#fff"
-        />
-        <Text style={styles.inheritLabel}>{strings.inheritFromGlobal}</Text>
-      </View>
-
-      {!draft.inherit && draft.mesh && (
-        <View style={styles.ownSpec}>
-          <Text style={styles.groupLabel}>{strings.overlapLabel}</Text>
-          <View style={styles.overlapRow}>
-            <NumberField
-              value={draft.overlap}
-              onChangeText={(overlap) => onChange({ ...draft, overlap })}
-            />
-            <View style={styles.overlapSpacer} />
-          </View>
-          <MeshSpecPicker
-            value={draft.mesh}
-            onChange={(mesh) => onChange({ ...draft, mesh })}
+    <View>
+      <SummaryRow
+        title={draft.name || strings.areaDefaultName}
+        meta={draftMeta(draft)}
+        badge={!draft.inherit ? strings.customSpecBadge : undefined}
+        expanded={expanded}
+        onPress={() => setExpanded((e) => !e)}
+        onDelete={canDelete ? onDelete : undefined}
+        isLast={isLast && !expanded}
+      />
+      {expanded && (
+        <View style={[styles.editor, !isLast && styles.separator]}>
+          <TextInput
+            style={[styles.nameInput, typo(type.rowTitle)]}
+            value={draft.name}
+            onChangeText={(name) => onChange({ ...draft, name })}
+            placeholder={strings.areaNamePlaceholder}
+            placeholderTextColor={colors.textTertiary}
           />
+          <View style={styles.dimsRow}>
+            <NumberField
+              label={strings.lengthLabel}
+              value={draft.length}
+              onChangeText={(length) => onChange({ ...draft, length })}
+            />
+            <NumberField
+              label={strings.widthLabel}
+              value={draft.width}
+              onChangeText={(width) => onChange({ ...draft, width })}
+            />
+          </View>
+
+          <View style={styles.inheritRow}>
+            <Switch
+              value={draft.inherit}
+              onValueChange={toggleInherit}
+              trackColor={{ true: colors.primary, false: colors.chipOutline }}
+              thumbColor={colors.card}
+            />
+            <Text
+              style={[typo(type.secondary), { color: colors.textSecondary, flex: 1, textAlign: 'right' }]}
+            >
+              {strings.inheritFromGlobal}
+            </Text>
+          </View>
+
+          {!draft.inherit && draft.mesh && (
+            <View style={styles.ownSpec}>
+              <Text style={styles.groupLabel}>{strings.overlapLabel}</Text>
+              <View style={styles.overlapRow}>
+                <NumberField
+                  value={draft.overlap}
+                  onChangeText={(overlap) => onChange({ ...draft, overlap })}
+                />
+                <View style={styles.overlapSpacer} />
+              </View>
+              <MeshSpecPicker
+                value={draft.mesh}
+                onChange={(mesh) => onChange({ ...draft, mesh })}
+              />
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -116,69 +133,40 @@ export default function RectRow({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#faf8f5',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e0d8',
-    padding: 12,
-    marginBottom: 10,
+  editor: {
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+  separator: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.hairline,
+    marginBottom: spacing.sm,
   },
   nameInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1a1a1a',
+    backgroundColor: colors.fillInput,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    color: colors.text,
     textAlign: 'right',
-    paddingVertical: 4,
-  },
-  deleteBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#f0e8dd',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteText: {
-    color: '#8a6d3b',
-    fontSize: 14,
-    fontWeight: '700',
   },
   dimsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
   },
   inheritRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 12,
-  },
-  inheritLabel: {
-    flex: 1,
-    fontSize: 13,
-    color: '#555',
-    textAlign: 'right',
+    gap: spacing.sm,
   },
   ownSpec: {
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e0d8',
-    paddingTop: 4,
+    gap: spacing.xs,
   },
   groupLabel: {
-    fontSize: 13,
-    color: '#555',
-    marginTop: 12,
-    marginBottom: 6,
+    ...typo(type.sectionLabel),
+    color: colors.textSecondary,
     textAlign: 'right',
+    marginTop: spacing.xs,
   },
   overlapRow: {
     flexDirection: 'row',

@@ -16,10 +16,13 @@ import { DEFAULT_MESH, DEFAULT_OVERLAP_CM } from '../src/constants';
 import { CalcError, computeOrder } from '../src/calc/mesh';
 import { getOrder, saveOrder } from '../src/storage/orderRepo';
 import { notify } from '../src/ui/alerts';
+import { colors, spacing, type, typo } from '../src/ui/theme';
 import { strings } from '../src/i18n/strings';
+import Button from '../src/components/ui/Button';
+import Card from '../src/components/ui/Card';
 import MeshSpecPicker from '../src/components/MeshSpecPicker';
 import RectRow, { AreaDraft } from '../src/components/RectRow';
-import { parseNumber } from '../src/components/NumberField';
+import NumberField, { parseNumber } from '../src/components/NumberField';
 
 function newDraft(index: number): AreaDraft {
   return {
@@ -190,68 +193,90 @@ export default function NewOrderScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.label}>{strings.orderTitleLabel}</Text>
-        <TextInput
-          style={styles.titleInput}
-          value={title}
-          onChangeText={setTitle}
-          placeholder={strings.orderTitlePlaceholder}
-          placeholderTextColor="#999"
-        />
-
-        <Text style={styles.label}>{strings.overlapLabel}</Text>
-        <TextInput
-          style={styles.overlapInput}
-          value={overlap}
-          onChangeText={setOverlap}
-          keyboardType="decimal-pad"
-        />
-
-        <Text style={styles.sectionTitle}>{strings.meshSectionTitle}</Text>
-        <MeshSpecPicker value={mesh} onChange={setMesh} />
-
-        <Text style={styles.sectionTitle}>{strings.areasSectionTitle}</Text>
-        {drafts.map((d) => (
-          <RectRow
-            key={d.id}
-            draft={d}
-            onChange={updateDraft}
-            onDelete={() =>
-              setDrafts((prev) => prev.filter((x) => x.id !== d.id))
-            }
-            canDelete={drafts.length > 1}
-            globalMesh={mesh}
-            globalOverlapCm={overlap}
+        <Card>
+          <Text style={[typo(type.caption), styles.fieldLabel]}>
+            {strings.orderTitleLabel}
+          </Text>
+          <TextInput
+            style={[styles.textField, typo(type.body)]}
+            value={title}
+            onChangeText={setTitle}
+            placeholder={strings.orderTitlePlaceholder}
+            placeholderTextColor={colors.textTertiary}
           />
-        ))}
-        <Pressable
-          style={styles.addButton}
-          onPress={() =>
-            setDrafts((prev) => [...prev, newDraft(prev.length + 1)])
+        </Card>
+
+        <Card title={strings.globalSpecTitle}>
+          <Text style={[typo(type.caption), styles.fieldLabel]}>
+            {strings.overlapLabel}
+          </Text>
+          <View style={styles.overlapRow}>
+            <NumberField value={overlap} onChangeText={setOverlap} />
+            <View style={styles.overlapSpacer} />
+          </View>
+          <MeshSpecPicker value={mesh} onChange={setMesh} />
+        </Card>
+
+        <Card
+          title={strings.areasSectionTitle}
+          headerRight={
+            <Pressable
+              onPress={() =>
+                setDrafts((prev) => [...prev, newDraft(prev.length + 1)])
+              }
+              hitSlop={8}
+            >
+              <Text
+                style={[
+                  typo({ fontSize: 14, fontWeight: '700' }),
+                  { color: colors.primary },
+                ]}
+              >
+                {strings.addLink}
+              </Text>
+            </Pressable>
           }
         >
-          <Text style={styles.addButtonText}>+ {strings.addArea}</Text>
-        </Pressable>
+          {drafts.map((d, i) => (
+            <RectRow
+              key={d.id}
+              draft={d}
+              onChange={updateDraft}
+              onDelete={() =>
+                setDrafts((prev) => prev.filter((x) => x.id !== d.id))
+              }
+              canDelete={drafts.length > 1}
+              globalMesh={mesh}
+              globalOverlapCm={overlap}
+              isLast={i === drafts.length - 1}
+            />
+          ))}
+        </Card>
       </ScrollView>
 
       <View style={styles.footer}>
-        <Text style={styles.summaryText}>
-          {summary === null
-            ? strings.invalidInput
-            : 'error' in summary
-              ? summary.error
-              : strings.liveSummary(
-                  summary.lines.reduce((s, l) => s + l.quantity, 0),
-                  summary.totalWeightKg
-                )}
-        </Text>
-        <Pressable
-          style={[styles.saveButton, (summary === null || hasError) && styles.saveDisabled]}
+        <View style={styles.totalRow}>
+          <Text style={[typo(type.caption), { color: colors.textSecondary }]}>
+            {strings.estimatedTotal}
+          </Text>
+          <Text
+            style={[typo({ fontSize: 17, fontWeight: '800' }), { color: colors.text }]}
+          >
+            {summary === null
+              ? strings.invalidInput
+              : 'error' in summary
+                ? summary.error
+                : strings.liveSummary(
+                    summary.lines.reduce((s, l) => s + l.quantity, 0),
+                    summary.totalWeightKg
+                  )}
+          </Text>
+        </View>
+        <Button
+          label={strings.saveAndShow}
           onPress={save}
           disabled={summary === null || hasError}
-        >
-          <Text style={styles.saveButtonText}>{strings.saveAndShow}</Text>
-        </Pressable>
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -262,88 +287,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 16,
+    padding: spacing.xl,
     paddingBottom: 40,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
-  label: {
-    fontSize: 13,
-    color: '#555',
-    marginBottom: 4,
-    marginTop: 8,
+  fieldLabel: {
+    color: colors.textSecondary,
+    textAlign: 'right',
+    marginBottom: 6,
+  },
+  textField: {
+    backgroundColor: colors.fillInput,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    color: colors.text,
     textAlign: 'right',
   },
-  titleInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 16,
-    textAlign: 'right',
-    backgroundColor: '#fff',
-    color: '#1a1a1a',
+  overlapRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
   },
-  overlapInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 16,
-    textAlign: 'right',
-    backgroundColor: '#fff',
-    color: '#1a1a1a',
-    width: 120,
-    alignSelf: 'flex-start',
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginTop: 20,
-    marginBottom: 4,
-    textAlign: 'right',
-  },
-  addButton: {
-    borderWidth: 1,
-    borderColor: '#b45309',
-    borderRadius: 10,
-    borderStyle: 'dashed',
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  addButtonText: {
-    color: '#b45309',
-    fontSize: 15,
-    fontWeight: '600',
+  overlapSpacer: {
+    flex: 2,
   },
   footer: {
-    borderTopWidth: 1,
-    borderTopColor: '#e5e0d8',
-    backgroundColor: '#fff',
-    padding: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.hairline,
+    backgroundColor: colors.card,
+    padding: spacing.lg,
     paddingBottom: 28,
-    gap: 10,
+    gap: spacing.md,
   },
-  summaryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    textAlign: 'center',
-  },
-  saveButton: {
-    backgroundColor: '#b45309',
-    borderRadius: 12,
-    paddingVertical: 14,
+  totalRow: {
     alignItems: 'center',
-  },
-  saveDisabled: {
-    backgroundColor: '#d0c5b5',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
+    gap: 2,
   },
 });

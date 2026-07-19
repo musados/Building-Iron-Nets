@@ -59,10 +59,10 @@ export function orderToHtml(order: Order): string {
   body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; margin: 32px; color: #1a1a1a; }
   h1 { font-size: 22px; margin-bottom: 2px; }
   .meta { color: #555; font-size: 13px; margin-bottom: 20px; }
-  h2 { font-size: 16px; margin-top: 24px; border-bottom: 2px solid #b45309; padding-bottom: 4px; }
+  h2 { font-size: 16px; margin-top: 24px; border-bottom: 2px solid #3273b8; padding-bottom: 4px; }
   table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
   th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: right; }
-  th { background: #f5f0e8; }
+  th { background: #eef3f8; }
   .totals { margin-top: 16px; font-size: 15px; font-weight: bold; }
   .notes { margin-top: 16px; font-size: 13px; white-space: pre-wrap; }
 </style>

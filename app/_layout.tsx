@@ -1,6 +1,15 @@
 import React from 'react';
-import { I18nManager, Platform } from 'react-native';
+import { I18nManager, Platform, View } from 'react-native';
 import { Stack } from 'expo-router';
+import {
+  useFonts,
+  Heebo_400Regular,
+  Heebo_500Medium,
+  Heebo_600SemiBold,
+  Heebo_700Bold,
+  Heebo_800ExtraBold,
+} from '@expo-google-fonts/heebo';
+import { colors } from '../src/ui/theme';
 
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
@@ -10,14 +19,33 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   document.documentElement.lang = 'he';
 }
 
+const pageBg = Platform.OS === 'web' ? colors.bgWeb : colors.bg;
+
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Heebo_400Regular,
+    Heebo_500Medium,
+    Heebo_600SemiBold,
+    Heebo_700Bold,
+    Heebo_800ExtraBold,
+  });
+
+  if (!fontsLoaded) {
+    return <View style={{ flex: 1, backgroundColor: pageBg }} />;
+  }
+
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: '#b45309' },
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '700' },
-        contentStyle: { backgroundColor: '#fdfcfa' },
+        headerStyle: { backgroundColor: pageBg },
+        headerShadowVisible: false,
+        headerTintColor: colors.text,
+        headerTitleStyle: {
+          fontFamily: 'Heebo_800ExtraBold',
+          fontSize: 18,
+          color: colors.text,
+        },
+        contentStyle: { backgroundColor: pageBg },
       }}
     />
   );

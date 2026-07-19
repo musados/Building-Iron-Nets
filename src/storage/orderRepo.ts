@@ -34,6 +34,10 @@ export async function saveOrder(order: Order): Promise<void> {
     createdAt: order.createdAt,
     totalSheets: order.lines.reduce((sum, l) => sum + l.quantity, 0),
     totalWeightKg: order.totalWeightKg,
+    totalBars: (order.barLines ?? []).reduce((sum, l) => sum + l.quantity, 0),
+    totalColumns: (order.columns ?? []).reduce((sum, c) => sum + c.count, 0),
+    orderType: order.orderType ?? 'simple',
+    hasAi: order.aiExtraction != null,
   };
   const index = await listOrders();
   const next = [summary, ...index.filter((s) => s.id !== order.id)];

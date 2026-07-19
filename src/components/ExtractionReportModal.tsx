@@ -10,6 +10,7 @@ import {
 import { AiExtractionReport, AiReportItem } from '../types';
 import { extractionReportToHtml } from '../share/extractionHtml';
 import { printHtmlAsPdf } from '../ui/printHtml';
+import { colors } from '../ui/theme';
 import { strings } from '../i18n/strings';
 
 interface Props {
@@ -85,27 +86,27 @@ export default function ExtractionReportModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(15,23,32,0.45)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#fdfcfa',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     maxHeight: '88%',
     paddingTop: 16,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   disclaimer: {
     fontSize: 12,
-    color: '#8a6d3b',
-    backgroundColor: '#fdf3e3',
+    color: colors.warningText,
+    backgroundColor: colors.warningTint,
     borderRadius: 8,
     padding: 10,
     marginHorizontal: 16,
@@ -122,38 +123,38 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: colors.text,
     marginTop: 14,
     marginBottom: 6,
     textAlign: 'right',
   },
   itemCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.onPrimary,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e5e0d8',
+    borderColor: colors.hairline,
     padding: 12,
     marginBottom: 8,
   },
   itemLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.text,
     textAlign: 'right',
     marginBottom: 4,
   },
   itemDerivation: {
     fontSize: 13,
-    color: '#444',
+    color: colors.textSecondary,
     textAlign: 'right',
     lineHeight: 19,
   },
   notes: {
     fontSize: 13,
-    color: '#333',
+    color: colors.textSecondary,
     textAlign: 'right',
     lineHeight: 19,
-    backgroundColor: '#f7f4ef',
+    backgroundColor: colors.thinking,
     borderRadius: 8,
     padding: 12,
   },
@@ -163,31 +164,31 @@ const styles = StyleSheet.create({
     padding: 14,
     paddingBottom: 24,
     borderTopWidth: 1,
-    borderTopColor: '#e5e0d8',
+    borderTopColor: colors.hairline,
   },
   printBtn: {
     flex: 1,
-    backgroundColor: '#b45309',
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 999,
     paddingVertical: 12,
     alignItems: 'center',
   },
   printBtnText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '700',
   },
   closeBtn: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.onPrimary,
     borderWidth: 1,
-    borderColor: '#b45309',
-    borderRadius: 12,
+    borderColor: colors.primary,
+    borderRadius: 999,
     paddingVertical: 12,
     alignItems: 'center',
   },
   closeBtnText: {
-    color: '#b45309',
+    color: colors.primary,
     fontSize: 15,
     fontWeight: '700',
   },

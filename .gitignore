@@ -46,3 +46,6 @@ server/.env
 # Python server
 server/.venv/
 __pycache__/
+
+# design handoff archives
+*.zip

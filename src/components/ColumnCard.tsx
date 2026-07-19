@@ -1,7 +1,9 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, TextInput, View } from 'react-native';
+import { colors, spacing, type, typo } from '../ui/theme';
 import { strings } from '../i18n/strings';
 import NumberField from './NumberField';
+import SummaryRow from './ui/SummaryRow';
 
 export interface ColumnDraft {
   id: string;
@@ -21,124 +23,137 @@ interface Props {
   draft: ColumnDraft;
   onChange: (draft: ColumnDraft) => void;
   onDelete: () => void;
+  isLast?: boolean;
 }
 
-export default function ColumnCard({ draft, onChange, onDelete }: Props) {
+function columnMeta(d: ColumnDraft): string {
+  const parts: string[] = [];
+  if (d.width && d.depth) parts.push(`${d.width}/${d.depth} ס"מ`);
+  if (d.height) parts.push(`גובה ${d.height} מ'`);
+  if (d.longBarCount && d.longBarDiameter) {
+    parts.push(`${d.longBarCount}×Ø${d.longBarDiameter}`);
+  }
+  if (d.stirrupDiameter && d.stirrupSpacing) {
+    parts.push(`חישוק Ø${d.stirrupDiameter}@${d.stirrupSpacing}`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : '—';
+}
+
+export default function ColumnCard({
+  draft,
+  onChange,
+  onDelete,
+  isLast,
+}: Props) {
+  const [expanded, setExpanded] = useState(draft.height === '');
   const set = (patch: Partial<ColumnDraft>) => onChange({ ...draft, ...patch });
 
   return (
-    <View style={styles.card}>
-      <View style={styles.headerRow}>
-        <TextInput
-          style={styles.nameInput}
-          value={draft.name}
-          onChangeText={(name) => set({ name })}
-          placeholder={strings.columnNamePlaceholder}
-          placeholderTextColor="#999"
-        />
-        <Pressable onPress={onDelete} style={styles.deleteBtn} hitSlop={8}>
-          <Text style={styles.deleteText}>✕</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.row}>
-        <NumberField
-          label={strings.columnCount}
-          value={draft.count}
-          onChangeText={(count) => set({ count })}
-        />
-        <NumberField
-          label={strings.columnHeight}
-          value={draft.height}
-          onChangeText={(height) => set({ height })}
-        />
-        <NumberField
-          label={strings.columnCover}
-          value={draft.cover}
-          onChangeText={(cover) => set({ cover })}
-        />
-      </View>
-
-      <View style={styles.row}>
-        <NumberField
-          label={strings.columnWidth}
-          value={draft.width}
-          onChangeText={(width) => set({ width })}
-        />
-        <NumberField
-          label={strings.columnDepth}
-          value={draft.depth}
-          onChangeText={(depth) => set({ depth })}
-        />
-      </View>
-
-      <View style={styles.row}>
-        <NumberField
-          label={strings.longBarCount}
-          value={draft.longBarCount}
-          onChangeText={(longBarCount) => set({ longBarCount })}
-        />
-        <NumberField
-          label={strings.longBarDiameter}
-          value={draft.longBarDiameter}
-          onChangeText={(longBarDiameter) => set({ longBarDiameter })}
-        />
-      </View>
-
-      <View style={styles.row}>
-        <NumberField
-          label={strings.stirrupDiameter}
-          value={draft.stirrupDiameter}
-          onChangeText={(stirrupDiameter) => set({ stirrupDiameter })}
-        />
-        <NumberField
-          label={strings.stirrupSpacing}
-          value={draft.stirrupSpacing}
-          onChangeText={(stirrupSpacing) => set({ stirrupSpacing })}
-        />
-      </View>
+    <View>
+      <SummaryRow
+        title={`${draft.name || 'עמוד'}${draft.count ? ` × ${draft.count}` : ''}`}
+        meta={columnMeta(draft)}
+        expanded={expanded}
+        onPress={() => setExpanded((e) => !e)}
+        onDelete={onDelete}
+        isLast={isLast && !expanded}
+      />
+      {expanded && (
+        <View style={[styles.editor, !isLast && styles.separator]}>
+          <TextInput
+            style={[styles.nameInput, typo(type.rowTitle)]}
+            value={draft.name}
+            onChangeText={(name) => set({ name })}
+            placeholder={strings.columnNamePlaceholder}
+            placeholderTextColor={colors.textTertiary}
+          />
+          <View style={styles.grid}>
+            <NumberField
+              label={strings.columnCount}
+              value={draft.count}
+              onChangeText={(count) => set({ count })}
+              style={styles.cell}
+            />
+            <NumberField
+              label={strings.columnHeight}
+              value={draft.height}
+              onChangeText={(height) => set({ height })}
+              style={styles.cell}
+            />
+            <NumberField
+              label={strings.columnCover}
+              value={draft.cover}
+              onChangeText={(cover) => set({ cover })}
+              style={styles.cell}
+            />
+            <NumberField
+              label={strings.columnWidth}
+              value={draft.width}
+              onChangeText={(width) => set({ width })}
+              style={styles.cell}
+            />
+            <NumberField
+              label={strings.columnDepth}
+              value={draft.depth}
+              onChangeText={(depth) => set({ depth })}
+              style={styles.cell}
+            />
+            <NumberField
+              label={strings.longBarCount}
+              value={draft.longBarCount}
+              onChangeText={(longBarCount) => set({ longBarCount })}
+              style={styles.cell}
+            />
+            <NumberField
+              label={strings.longBarDiameter}
+              value={draft.longBarDiameter}
+              onChangeText={(longBarDiameter) => set({ longBarDiameter })}
+              style={styles.cell}
+            />
+            <NumberField
+              label={strings.stirrupDiameter}
+              value={draft.stirrupDiameter}
+              onChangeText={(stirrupDiameter) => set({ stirrupDiameter })}
+              style={styles.cell}
+            />
+            <NumberField
+              label={strings.stirrupSpacing}
+              value={draft.stirrupSpacing}
+              onChangeText={(stirrupSpacing) => set({ stirrupSpacing })}
+              style={styles.cell}
+            />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#faf8f5',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e0d8',
-    padding: 12,
-    marginBottom: 10,
-    gap: 8,
+  editor: {
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  separator: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.hairline,
+    marginBottom: spacing.sm,
   },
   nameInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1a1a1a',
+    backgroundColor: colors.fillInput,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    color: colors.text,
     textAlign: 'right',
-    paddingVertical: 4,
   },
-  deleteBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#f0e8dd',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteText: {
-    color: '#8a6d3b',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  row: {
+  grid: {
     flexDirection: 'row',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  cell: {
+    flexBasis: '30%',
+    flexGrow: 1,
   },
 });

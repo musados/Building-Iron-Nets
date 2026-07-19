@@ -1,34 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { MeshSpec } from '../types';
 import { DIAMETERS_MM, PRESET_SHEETS, SPACINGS_CM } from '../constants';
 import { strings } from '../i18n/strings';
+import { colors, type, typo } from '../ui/theme';
 import NumberField, { parseNumber } from './NumberField';
+import Chip from './ui/Chip';
 
 interface Props {
   value: MeshSpec;
   onChange: (spec: MeshSpec) => void;
-}
-
-function Chip({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.chip, selected && styles.chipSelected]}
-    >
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
 }
 
 /**
@@ -182,36 +163,16 @@ export default function MeshSpecPicker({ value, onChange }: Props) {
 
 const styles = StyleSheet.create({
   groupLabel: {
-    fontSize: 13,
-    color: '#555',
+    ...typo(type.sectionLabel),
+    color: colors.textSecondary,
     marginTop: 12,
-    marginBottom: 6,
+    marginBottom: 8,
     textAlign: 'right',
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  chip: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    backgroundColor: '#fff',
-  },
-  chipSelected: {
-    backgroundColor: '#b45309',
-    borderColor: '#b45309',
-  },
-  chipText: {
-    fontSize: 15,
-    color: '#333',
-  },
-  chipTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
   },
   customRow: {
     flexDirection: 'row',

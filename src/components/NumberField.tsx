@@ -1,11 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
+import { colors, hit, radius, type, typo } from '../ui/theme';
 
 interface Props {
   label?: string;
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
+  error?: string;
   style?: ViewStyle;
 }
 
@@ -22,19 +24,29 @@ export default function NumberField({
   value,
   onChangeText,
   placeholder,
+  error,
   style,
 }: Props) {
   return (
     <View style={[styles.container, style]}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? (
+        <Text style={[typo(type.caption), styles.label]}>{label}</Text>
+      ) : null}
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          typo(type.body),
+          error ? styles.inputError : null,
+        ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.textTertiary}
         keyboardType="decimal-pad"
       />
+      {error ? (
+        <Text style={[typo(type.caption), styles.error]}>{error}</Text>
+      ) : null}
     </View>
   );
 }
@@ -44,20 +56,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontSize: 13,
-    color: '#555',
+    color: colors.textSecondary,
     marginBottom: 4,
     textAlign: 'right',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 10,
+    minHeight: hit.input,
+    backgroundColor: colors.fillInput,
+    borderRadius: radius.tile,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    fontSize: 16,
     textAlign: 'right',
-    backgroundColor: '#fff',
-    color: '#1a1a1a',
+    color: colors.text,
+  },
+  inputError: {
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  error: {
+    color: colors.danger,
+    marginTop: 4,
+    textAlign: 'right',
   },
 });

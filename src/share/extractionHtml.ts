@@ -38,7 +38,7 @@ export function extractionReportToHtml(
   .meta { color: #555; font-size: 13px; margin-bottom: 16px; }
   .disclaimer { background: #fdf3e3; border: 1px solid #e5c88f; border-radius: 8px;
                 padding: 10px 12px; font-size: 13px; margin-bottom: 18px; }
-  h2 { font-size: 16px; margin-top: 22px; border-bottom: 2px solid #b45309; padding-bottom: 4px; }
+  h2 { font-size: 16px; margin-top: 22px; border-bottom: 2px solid #3273b8; padding-bottom: 4px; }
   .item { border: 1px solid #e0d8cc; border-radius: 8px; padding: 10px 12px; margin-top: 10px;
           page-break-inside: avoid; }
   .label { font-weight: bold; font-size: 14px; margin-bottom: 6px; }
