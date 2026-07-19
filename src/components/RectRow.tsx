@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { MeshSpec } from '../types';
 import { colors, spacing, type, typo } from '../ui/theme';
 import { strings } from '../i18n/strings';
 import NumberField from './NumberField';
 import MeshSpecPicker from './MeshSpecPicker';
 import SummaryRow from './ui/SummaryRow';
+import Toggle from './ui/Toggle';
 
 export interface AreaDraft {
   id: string;
@@ -97,12 +98,7 @@ export default function RectRow({
           </View>
 
           <View style={styles.inheritRow}>
-            <Switch
-              value={draft.inherit}
-              onValueChange={toggleInherit}
-              trackColor={{ true: colors.primary, false: colors.chipOutline }}
-              thumbColor={colors.card}
-            />
+            <Toggle value={draft.inherit} onValueChange={toggleInherit} />
             <Text
               style={[typo(type.secondary), { color: colors.textSecondary, flex: 1, textAlign: 'right' }]}
             >
